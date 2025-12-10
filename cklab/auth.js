@@ -1,65 +1,115 @@
 /* auth.js */
 
-// ฟังก์ชันสลับแท็บ (Display Toggle)
+let scannedPcId = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. ตรวจสอบว่ามี QR Code param มาหรือไม่? (เช่น index.html?pc=1)
+    const urlParams = new URLSearchParams(window.location.search);
+    const pcParam = urlParams.get('pc');
+
+    if (pcParam) {
+        scannedPcId = pcParam;
+        // แสดงสถานะว่าสแกนแล้ว
+        const qrStatus = document.getElementById('qrStatus');
+        const scanPcId = document.getElementById('scanPcId');
+        if (qrStatus && scanPcId) {
+            qrStatus.classList.remove('d-none');
+            scanPcId.innerText = `PC-${pcParam.padStart(2, '0')}`;
+        }
+        
+        // *สำคัญ* เช็คสถานะเครื่องจาก DB ว่าเครื่องนี้ว่างไหม
+        const pcs = DB.getPCs();
+        const targetPC = pcs.find(p => p.id == pcParam);
+        if (targetPC && targetPC.status === 'in_use') {
+            alert('⚠️ เครื่องนี้กำลังถูกใช้งานอยู่ กรุณาติดต่อเจ้าหน้าที่');
+        }
+    }
+    
+    // Auto clear session เก่าเมื่อกลับมาหน้าแรก
+    DB.clearSession();
+});
+
+// ฟังก์ชันสลับแท็บ
 function switchTab(type) {
-    // 1. จัดการปุ่มกด (Active State)
     document.getElementById('tab-internal').classList.toggle('active', type === 'internal');
     document.getElementById('tab-external').classList.toggle('active', type === 'external');
-
-    // 2. ซ่อน/แสดงฟอร์ม
     document.getElementById('formInternal').style.display = (type === 'internal') ? 'block' : 'none';
     document.getElementById('formExternal').style.display = (type === 'external') ? 'block' : 'none';
 }
 
-// Login: ผู้ใช้ภายใน (เหมือนเดิม)
+// Helper: ดึงประเภทการใช้งาน (Walk-in / Booking)
+function getUsageType() {
+    if(document.getElementById('typeWalkin').checked) return 'walk-in';
+    if(document.getElementById('typeBooking').checked) return 'booking';
+    return 'walk-in';
+}
+
+// Login: Internal
 function loginInternal() {
-    const idInput = document.getElementById('intId');
-    const id = idInput.value.trim();
+    const id = document.getElementById('intId').value.trim();
+    if (!id) return alert("กรุณากรอกรหัสนักศึกษา/UBU WiFi");
 
-    if (!id) return alert("กรุณากรอกรหัสนักศึกษา");
+    // จำลองเรียก External System (REG API)
+    const regData = DB.checkUser(id); 
 
-    const user = DB.checkUser(id); // เช็คจาก mock-db.js
+    if (regData) {
+        const usageType = getUsageType();
+        
+        // สร้าง User Object
+        const userObj = {
+            id: id,
+            name: `${regData.title}${regData.name}`,
+            faculty: regData.faculty,
+            userType: 'internal',
+            role: regData.type, // Student/Staff
+            usageType: usageType
+        };
 
-    if (user) {
-        // บันทึก Session (type: internal)
-        DB.setSession({ 
-            user: { ...user, id: id, userType: 'internal' } 
-        });
-        window.location.href = 'map.html';
+        proceedNext(userObj);
     } else {
-        alert("ไม่พบข้อมูล (Hint: ลองใช้รหัส 66123456)");
-        idInput.value = '';
+        alert("ไม่พบข้อมูลในระบบ REG API (Hint: ลองใช้ 66123456)");
     }
 }
 
-// Login: บุคคลภายนอก (ใหม่)
+// Login: External
 function loginExternal() {
     const card = document.getElementById('extCard').value.trim();
     const name = document.getElementById('extName').value.trim();
     const org = document.getElementById('extOrg').value.trim();
 
-    if (!card || !name || !org) {
-        return alert("กรุณากรอกข้อมูลให้ครบถ้วน");
-    }
+    if (!card || !name || !org) return alert("กรุณากรอกข้อมูลให้ครบถ้วน");
 
-    // สร้าง User Object สำหรับบุคคลภายนอก
-    const guestUser = {
-        id: card,           // ใช้เลขบัตรแทนรหัสนักศึกษา
+    const usageType = getUsageType();
+
+    const userObj = {
+        id: card,
         name: name,
-        faculty: org,       // ใช้ชื่อหน่วยงานแทนคณะ
+        faculty: org, // ใช้ field faculty เก็บหน่วยงานแทน
         userType: 'external',
-        role: 'guest'
+        role: 'guest',
+        usageType: usageType
     };
 
-    // บันทึก Session และไปต่อ
-    DB.setSession({ user: guestUser });
-    window.location.href = 'map.html';
+    proceedNext(userObj);
 }
 
-// Auto Redirect ถ้ามี Session ค้าง (Optional)
-document.addEventListener('DOMContentLoaded', () => {
-    const session = DB.getSession();
-    if(session && session.user && !session.pcId) {
-        // window.location.href = 'map.html'; 
+// ฟังก์ชันไปหน้าถัดไป (ตัดสินใจว่าจะไป Map หรือ Confirm)
+function proceedNext(userObj) {
+    // 1. บันทึก User ลง Session
+    // ถ้าสแกน QR มา ให้บันทึก pcId ลง Session เลย
+    let sessionData = { user: userObj };
+    if (scannedPcId) {
+        sessionData.pcId = scannedPcId;
     }
-});
+
+    DB.setSession(sessionData);
+
+    // 2. ตัดสินใจ Routing
+    if (scannedPcId) {
+        // Case A: สแกน QR Code มา -> ข้ามไปหน้า Confirm เลย
+        window.location.href = 'confirm.html';
+    } else {
+        // Case B: Kiosk กลาง (ไม่ได้ระบุเครื่อง) -> ไปหน้าเลือกเครื่อง
+        window.location.href = 'map.html';
+    }
+}

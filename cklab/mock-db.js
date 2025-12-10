@@ -10,11 +10,16 @@ const DEFAULT_PCS = [
     { id: 6, name: "PC-06", status: "reserved", software: [1] }
 ];
 
-const MOCK_USERS_API = {
-    "66123456": { name: "นายสมชาย ใจดี", faculty: "คณะวิศวกรรมศาสตร์", type: "Student" },
-    "admin": { name: "Administrator", role: "admin" }
+const REG_API = {
+    checkStudent: (id) => {
+        // จำลองฐานข้อมูลนักศึกษา/บุคลากร
+        const mockData = {
+            "66123456": { title: "นาย", name: "สมชาย รักเรียน", faculty: "คณะวิศวกรรมศาสตร์", type: "Student" },
+            "st001": { title: "ดร.", name: "อาจารย์ใจดี", faculty: "คณะวิทยาศาสตร์", type: "Staff" }
+        };
+        return mockData[id] || null;
+    }
 };
-
 const DEFAULT_CONFIG = {
     labName: "ห้องปฏิบัติการคอมพิวเตอร์ CKLab",
     announcement: "ยินดีต้อนรับสู่ CKLab เปิดให้บริการ จันทร์-ศุกร์ 08.00 - 20.00 น."
@@ -46,9 +51,8 @@ const DB = {
     },
 
     // --- User & Auth ---
-    checkUser: (id) => {
-        // จำลองการเช็ค User จาก Mock Data
-        return MOCK_USERS_API[id] || null;
+checkUser: (id) => {
+        return REG_API.checkStudent(id);
     },
 
     // --- Session Management (สำคัญสำหรับ Multi-page) ---
