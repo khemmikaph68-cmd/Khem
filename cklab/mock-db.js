@@ -13,35 +13,35 @@ const DEFAULT_SOFTWARE = [
     { id: "s5", name: "SciSpace", version: "Premium", type: "AI" },
     { id: "s6", name: "Grammarly", version: "Pro", type: "AI" },
     { id: "s7", name: "Botnoi VOICE", version: "Premium", type: "AI" },
-    { id: "s8", name: "Gamma", version: "Pro", type: "AI" }, // แก้คำผิดจาก Gramma เป็น Gamma
+    { id: "s8", name: "Gamma", version: "Pro", type: "AI" },
     { id: "s9", name: "Canva", version: "Pro", type: "Software" }
 ];
 
-// 1.1 ข้อมูลเครื่องคอมพิวเตอร์ (ติดตั้ง AI เหล่านี้ลงไป)
+// 1.1 ข้อมูลเครื่องคอมพิวเตอร์ (แก้ไข key เป็น installedSoftware ให้ตรงกับ JS)
 const DEFAULT_PCS = [
     { 
         id: "1", name: "PC-01", status: "available", 
-        software: ["ChatGPT (Plus)", "Claude (Pro)", "Perplexity (Pro)"] 
+        installedSoftware: ["ChatGPT (Plus)", "Claude (Pro)", "Perplexity (Pro)"] 
     },
     { 
         id: "2", name: "PC-02", status: "in_use", currentUser: "สมชาย รักเรียน", startTime: Date.now() - 3600000, 
-        software: ["Midjourney (Basic)", "Canva (Pro)", "Gamma (Pro)"] 
+        installedSoftware: ["Midjourney (Basic)", "Canva (Pro)", "Gamma (Pro)"] 
     },
     { 
         id: "3", name: "PC-03", status: "available", 
-        software: ["SciSpace (Premium)", "Grammarly (Pro)", "ChatGPT (Plus)"] 
+        installedSoftware: ["SciSpace (Premium)", "Grammarly (Pro)", "ChatGPT (Plus)"] 
     },
     { 
         id: "4", name: "PC-04", status: "available", 
-        software: ["Botnoi VOICE (Premium)", "Canva (Pro)"] 
+        installedSoftware: ["Botnoi VOICE (Premium)", "Canva (Pro)"] 
     },
     { 
         id: "5", name: "PC-05", status: "available", 
-        software: ["ChatGPT (Plus)", "Claude (Pro)", "Midjourney (Basic)"] 
+        installedSoftware: ["ChatGPT (Plus)", "Claude (Pro)", "Midjourney (Basic)"] 
     },
     { 
         id: "6", name: "PC-06", status: "reserved", 
-        software: ["Perplexity (Pro)", "SciSpace (Premium)"] 
+        installedSoftware: ["Perplexity (Pro)", "SciSpace (Premium)"] 
     }
 ];
 
@@ -146,12 +146,13 @@ function generateMockLogEntry(dateOffsetDays) {
     let usedSoftwareLog = [];
     let isAILog = false;
 
-    if (targetPC.software && targetPC.software.length > 0) {
+    // ** แก้ไขตรงนี้: เปลี่ยน targetPC.software เป็น targetPC.installedSoftware **
+    if (targetPC.installedSoftware && targetPC.installedSoftware.length > 0) {
         // สุ่มมา 1 ตัวจากรายการที่ติดตั้งบนเครื่องนี้
-        const installedItem = targetPC.software[Math.floor(Math.random() * targetPC.software.length)];
+        const installedItem = targetPC.installedSoftware[Math.floor(Math.random() * targetPC.installedSoftware.length)];
         usedSoftwareLog.push(installedItem);
 
-        // ตรวจสอบว่าเป็น AI หรือไม่ (เช็คจากชื่อให้ครอบคลุมรายชื่อใหม่)
+        // ตรวจสอบว่าเป็น AI หรือไม่
         isAILog = installedItem.toLowerCase().includes('gpt') || 
                   installedItem.toLowerCase().includes('claude') || 
                   installedItem.toLowerCase().includes('perplexity') || 
@@ -160,7 +161,7 @@ function generateMockLogEntry(dateOffsetDays) {
                   installedItem.toLowerCase().includes('botnoi') || 
                   installedItem.toLowerCase().includes('gamma') ||
                   installedItem.toLowerCase().includes('grammarly') ||
-                  installedItem.toLowerCase().includes('canva'); // Canva บางครั้งนับเป็น AI Tool
+                  installedItem.toLowerCase().includes('canva');
     }
 
     let date = new Date();
