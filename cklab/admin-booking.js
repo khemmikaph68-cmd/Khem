@@ -1,4 +1,4 @@
-/* admin-booking.js (Updated: Resolve User ID & Smart Status Update) */
+/* admin-booking.js (Final: No Software Selection on Save) */
 
 let bookingModal;
 
@@ -65,13 +65,9 @@ function renderBookings() {
                 break;
         }
 
-        let softwareInfo = '';
-        if (b.bookedSoftware && b.bookedSoftware.length > 0) {
-            softwareInfo = `<div class="mt-1 small text-muted"><i class="bi bi-code-slash me-1"></i>${b.bookedSoftware.join(', ')}</div>`;
-        }
-
+        // Type Badge
         const typeBadge = b.type === 'AI' 
-            ? '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary"><i class="bi bi-robot me-1"></i>AI</span>' 
+            ? '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary"><i class="bi bi-robot me-1"></i>AI Station</span>' 
             : '<span class="badge bg-secondary bg-opacity-10 text-secondary border"><i class="bi bi-laptop me-1"></i>General</span>';
 
         const tr = document.createElement('tr');
@@ -82,7 +78,7 @@ function renderBookings() {
                 <div class="small text-muted">${b.userId}</div>
             </td>
             <td><span class="badge bg-light text-dark border">${b.pcName}</span></td>
-            <td>${typeBadge} ${softwareInfo}</td> 
+            <td>${typeBadge}</td> 
             <td><span class="badge ${badgeClass}">${statusText}</span></td>
             <td class="text-end pe-4">${actionBtns}</td>
         `;
@@ -194,17 +190,11 @@ function updateStatus(id, newStatus) {
 }
 
 function openBookingModal() {
-    // 1. โหลดรายชื่อ PC
-    const pcs = DB.getPCs();
-    const select = document.getElementById('bkPcSelect');
-    select.innerHTML = '';
+    // โหลดรายชื่อ Software เข้าตัวกรอง (ถ้ามี element)
+    if(document.getElementById('bkSoftwareFilter')) initSoftwareFilter();
     
-    pcs.forEach(pc => {
-        const option = document.createElement('option');
-        option.value = pc.id;
-        option.text = `${pc.name} (${pc.status})`;
-        select.appendChild(option);
-    });
+    // โหลดรายชื่อ PC (เรียกครั้งแรกให้แสดงทั้งหมด)
+    renderPCOptions(DB.getPCs());
 
     // 2. Set Defaults
     const now = new Date();
@@ -212,12 +202,7 @@ function openBookingModal() {
     document.getElementById('bkDate').value = now.toISOString().split('T')[0];
     document.getElementById('bkTimeSlot').selectedIndex = 0; 
     document.getElementById('bkType').value = 'General';
-    
-    // โหลดรายชื่อ Software เข้าตัวกรอง (ถ้ามี element)
-    if(document.getElementById('bkSoftwareFilter')) initSoftwareFilter();
-
-    renderBookingSoftwareOptions();
-    toggleBookingSoftware();
+    document.getElementById('bkSoftwareFilter').value = '';
 
     if(bookingModal) bookingModal.show();
 }
@@ -250,67 +235,38 @@ function filterPCList() {
         );
     }
     
-    // Render PC Options
+    // อัปเดต Dropdown
+    renderPCOptions(filteredPcs);
+    
+    // ถ้ากรอง -> Auto Select Type AI
+    if (filterVal) {
+        document.getElementById('bkType').value = 'AI';
+    }
+}
+
+function renderPCOptions(pcs) {
     const select = document.getElementById('bkPcSelect');
     select.innerHTML = '';
     
-    if (filteredPcs.length === 0) {
+    if (pcs.length === 0) {
         const option = document.createElement('option');
         option.text = "-- ไม่พบเครื่องที่รองรับ --";
         select.appendChild(option);
-    } else {
-        filteredPcs.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-        filteredPcs.forEach(pc => {
-            const option = document.createElement('option');
-            option.value = pc.id;
-            option.text = `${pc.name} (${pc.status})`;
-            select.appendChild(option);
-        });
-    }
-    
-    if (filterVal) {
-        document.getElementById('bkType').value = 'AI';
-        toggleBookingSoftware();
-    }
-}
-
-function renderBookingSoftwareOptions() {
-    const container = document.getElementById('bkSoftwareList');
-    if (!container) return;
-    const lib = (DB.getSoftwareLib && typeof DB.getSoftwareLib === 'function') ? DB.getSoftwareLib() : [];
-    container.innerHTML = '';
-    if (lib.length === 0) {
-        container.innerHTML = '<div class="col-12 text-muted small">ไม่พบรายการ Software</div>';
         return;
     }
-    lib.forEach(item => {
-        const fullName = `${item.name} (${item.version})`;
-        const icon = item.type === 'AI' ? '<i class="bi bi-robot text-primary"></i>' : '<i class="bi bi-hdd-network text-secondary"></i>';
-        container.innerHTML += `
-            <div class="col-md-6">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="bkSoftware" value="${fullName}" id="bksw_${item.id}">
-                    <label class="form-check-label small cursor-pointer" for="bksw_${item.id}">
-                        ${icon} ${item.name}
-                    </label>
-                </div>
-            </div>
-        `;
+
+    // เรียงตามชื่อ
+    pcs.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+    pcs.forEach(pc => {
+        const option = document.createElement('option');
+        option.value = pc.id;
+        option.text = `${pc.name} (${pc.status})`;
+        select.appendChild(option);
     });
 }
 
-function toggleBookingSoftware() {
-    const type = document.getElementById('bkType').value;
-    const section = document.getElementById('bkSoftwareSection');
-    if (type === 'AI') {
-        section.style.display = 'block';
-    } else {
-        section.style.display = 'none';
-        document.querySelectorAll('input[name="bkSoftware"]').forEach(cb => cb.checked = false);
-    }
-}
-
-// ✅ ฟังก์ชันบันทึกที่อัปเดตใหม่ (แปลงรหัสเป็นชื่ออัตโนมัติ)
+// ✅ ฟังก์ชันบันทึก (ตัดส่วน Checkbox Software ออก)
 function saveBooking() {
     const pcId = document.getElementById('bkPcSelect').value;
     const date = document.getElementById('bkDate').value;
@@ -325,7 +281,7 @@ function saveBooking() {
         return;
     }
 
-    // 1. 🔥 แปลงรหัสเป็นชื่อ (Resolve ID to Name)
+    // 1. Resolve ID to Name
     let finalUserName = inputUser;
     let finalUserId = 'AdminKey'; 
 
@@ -337,18 +293,7 @@ function saveBooking() {
         finalUserName = inputUser;
     }
 
-    // 2. ตรวจสอบเงื่อนไข AI
-    let selectedSoftware = [];
-    if (type === 'AI') {
-        const checkboxes = document.querySelectorAll('input[name="bkSoftware"]:checked');
-        selectedSoftware = Array.from(checkboxes).map(cb => cb.value);
-        if (selectedSoftware.length === 0) {
-            alert("⚠️ กรุณาเลือก AI/Software อย่างน้อย 1 รายการ");
-            return;
-        }
-    }
-
-    // 3. เช็คจองซ้อน
+    // 2. เช็คจองซ้อน
     const conflict = checkTimeOverlap(pcId, date, start, end);
     if (conflict) {
         alert(`❌ ไม่สามารถจองได้! \nเครื่องนี้ถูกจองแล้วในช่วงเวลา ${conflict.startTime} - ${conflict.endTime}\nโดย: ${conflict.userName}`);
@@ -361,14 +306,14 @@ function saveBooking() {
     const newBooking = {
         id: 'b' + Date.now(),
         userId: finalUserId,   
-        userName: finalUserName, // ✅ บันทึกชื่อจริง
+        userName: finalUserName,
         pcId: pcId,
         pcName: pc ? pc.name : 'Unknown',
         date: date,
         startTime: start,
         endTime: end,
         type: type,
-        bookedSoftware: selectedSoftware,
+        // bookedSoftware: [], // ตัดออก
         status: 'approved' 
     };
 
@@ -376,10 +321,10 @@ function saveBooking() {
     bookings.push(newBooking);
     DB.saveBookings(bookings);
 
-    // 4. Smart Update Status (เฉพาะจองของวันนี้)
+    // 3. Smart Update Status
     const todayStr = new Date().toISOString().split('T')[0];
     if (date === todayStr) {
-        refreshPCStatus(pcId); // คำนวณใหม่ว่าควรขึ้นชื่อใคร
+        refreshPCStatus(pcId); 
         alert(`✅ บันทึกการจองสำหรับ "${finalUserName}" สำเร็จ`);
     } else {
         alert('✅ บันทึกการจองล่วงหน้าสำเร็จ');
