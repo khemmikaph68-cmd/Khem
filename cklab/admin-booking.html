@@ -71,8 +71,7 @@
                                 <th class="text-end pe-4">จัดการ</th>
                             </tr>
                         </thead>
-                        <tbody id="bookingTableBody">
-                            </tbody>
+                        <tbody id="bookingTableBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -98,8 +97,15 @@
                                 <label class="form-label">วันที่</label>
                                 <input type="date" id="bkDate" class="form-control" required>
                             </div>
+                            
                             <div class="col-6">
-                                <label class="form-label">เลือกเครื่อง</label>
+                                <label class="form-label d-flex justify-content-between">
+                                    เลือกเครื่อง
+                                </label>
+                                <select id="bkSoftwareFilter" class="form-select form-select-sm mb-2 text-primary border-primary bg-light" onchange="filterPCList()">
+                                    <option value="">🔍 ค้นหาจาก Software/AI...</option>
+                                    </select>
+                                
                                 <select id="bkPcSelect" class="form-select" required>
                                     </select>
                             </div>
@@ -128,8 +134,7 @@
                                 ระบุ AI/Software ที่จะใช้งาน <span class="text-danger">*</span>
                             </label>
                             <div class="card bg-light border-0 p-3" style="max-height: 150px; overflow-y: auto;">
-                                <div id="bkSoftwareList" class="row g-2">
-                                    </div>
+                                <div id="bkSoftwareList" class="row g-2"></div>
                             </div>
                         </div>
 

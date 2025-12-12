@@ -26,13 +26,17 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPCTable();
 });
 
-// --- 1. RENDER TABLE (แสดงตารางรายชื่อ PC) ---
+// --- 1. RENDER TABLE ---
 function renderPCTable() {
     const tbody = document.getElementById('pcTableBody');
     if (!tbody) return;
 
-    const pcs = Array.isArray(DB.getPCs()) ? DB.getPCs() : [];
+    let pcs = Array.isArray(DB.getPCs()) ? DB.getPCs() : [];
     
+    // ✅ แก้ไขตรงนี้: เปลี่ยนจากเรียงตาม ID เป็นเรียงตาม "ชื่อ" (Natural Sort)
+    // วิธีนี้จะทำให้ PC-01 มาก่อน PC-02 และ PC-2 มาก่อน PC-10 อย่างถูกต้อง
+    pcs.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
     tbody.innerHTML = '';
 
     if (pcs.length === 0) {
@@ -45,7 +49,7 @@ function renderPCTable() {
         const name = pc.name || 'Unknown';
         const status = pc.status || 'maintenance';
         
-        // ✅ ข้อมูลใหม่
+        // ข้อมูลใหม่
         const type = pc.pcType === 'AI' 
             ? '<span class="badge bg-primary"><i class="bi bi-robot me-1"></i>AI Station</span>' 
             : '<span class="badge bg-secondary">General</span>';
@@ -56,7 +60,6 @@ function renderPCTable() {
         if (status === 'in_use') badgeClass = 'bg-danger';
         if (status === 'reserved') badgeClass = 'bg-warning text-dark';
         
-        // จัดการรายชื่อ Software
         let softBadges = '<span class="text-muted small">-</span>';
         if (Array.isArray(pc.installedSoftware) && pc.installedSoftware.length > 0) {
             softBadges = pc.installedSoftware.map(s => {
@@ -72,7 +75,9 @@ function renderPCTable() {
                 <td class="ps-4 fw-bold text-muted">#${id}</td>
                 <td><span class="fw-bold text-primary">${name}</span></td>
                 <td><span class="badge ${badgeClass}">${status.toUpperCase()}</span></td>
-                <td>${type}</td> <td class="small">${timeSlot}</td> <td>${softBadges}</td>
+                <td>${type}</td>
+                <td class="small">${timeSlot}</td>
+                <td>${softBadges}</td>
                 <td class="text-end pe-4">
                     <button onclick="openPCModal('${id}')" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-pencil-fill"></i></button>
                     <button onclick="deletePC('${id}')" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash-fill"></i></button>
