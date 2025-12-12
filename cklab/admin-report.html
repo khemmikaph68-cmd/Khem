@@ -13,239 +13,273 @@
 
     <div class="d-flex">
         
- <div id="sidebar-container">
-    <a href="#" class="sidebar-brand"><i class="bi bi-shield-lock me-2"></i>Admin Panel</a>
-    <nav class="mt-3">
-        <a href="admin-monitor.html" class="nav-link-admin"><i class="bi bi-grid-fill"></i> Monitor</a>
-        <a href="admin-manage.html" class="nav-link-admin"><i class="bi bi-pc-display"></i> Manage PC</a>
-        
-        <a href="admin-booking.html" class="nav-link-admin"><i class="bi bi-calendar-check-fill"></i> Booking</a>
-        
-        <a href="admin-software.html" class="nav-link-admin"><i class="bi bi-robot"></i> Manage AI</a>
-        <a href="admin-config.html" class="nav-link-admin"><i class="bi bi-sliders"></i> System Config</a>
-        
-        <a href="admin-report.html" class="nav-link-admin active"><i class="bi bi-file-earmark-bar-graph-fill"></i> Reports</a>
-        
-        <div class="border-top my-3 mx-3"></div>
-        <a href="#" onclick="adminLogout()" class="nav-link-admin text-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
-    </nav>
-</div>
+        <div id="sidebar-container">
+            <a href="#" class="sidebar-brand"><i class="bi bi-shield-lock me-2"></i>Admin Panel</a>
+            <nav class="mt-3">
+                <a href="admin-monitor.html" class="nav-link-admin"><i class="bi bi-grid-fill"></i> Monitor</a>
+                <a href="admin-manage.html" class="nav-link-admin"><i class="bi bi-pc-display"></i> Manage PC</a>
+                
+                <a href="admin-booking.html" class="nav-link-admin"><i class="bi bi-calendar-check-fill"></i> Booking</a>
+                
+                <a href="admin-software.html" class="nav-link-admin"><i class="bi bi-robot"></i> Manage AI</a>
+                <a href="admin-config.html" class="nav-link-admin"><i class="bi bi-sliders"></i> System Config</a>
+                <a href="admin-report.html" class="nav-link-admin active"><i class="bi bi-file-earmark-bar-graph-fill"></i> Reports</a>
+                <div class="border-top my-3 mx-3"></div>
+                <a href="#" onclick="adminLogout()" class="nav-link-admin text-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
+            </nav>
+        </div>
+
         <div class="flex-grow-1 p-4" style="height: 100vh; overflow-y: auto;">
-        
             
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h3 class="fw-bold text-primary mb-1">📈 Reports & Analytics</h3>
-        <p class="text-muted small mb-0">สรุปสถิติการใช้งานเครื่องคอมพิวเตอร์และ AI Tools</p>
-    </div>
-    
-    <div class="d-flex gap-2">
-        <input type="file" id="csvFileInput" class="d-none" accept=".csv" onchange="processImportCSV(this)">
-        <button onclick="document.getElementById('csvFileInput').click()" class="btn btn-outline-primary shadow-sm">
-            <i class="bi bi-upload me-1"></i> Import CSV
-        </button>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h3 class="fw-bold text-primary mb-1">📈 Reports & Analytics</h3>
+                    <p class="text-muted small mb-0">สรุปสถิติการใช้งานเครื่องคอมพิวเตอร์และ AI Tools</p>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <input type="file" id="csvFileInput" class="d-none" accept=".csv" onchange="processImportCSV(this)">
+                    <button onclick="document.getElementById('csvFileInput').click()" class="btn btn-outline-primary shadow-sm">
+                        <i class="bi bi-upload me-1"></i> Import CSV
+                    </button>
 
-        <button onclick="exportCSV()" class="btn btn-success shadow-sm">
-            <i class="bi bi-download me-1"></i> Export Data
-        </button>
-    </div>
-</div>
-    <div class="row mb-4">
-    <div class="col-12">
-        <div class="card border-0 shadow-sm bg-primary text-white overflow-hidden position-relative">
-            <div class="position-absolute top-0 end-0 p-3 opacity-25">
-                <i class="bi bi-people-fill" style="font-size: 8rem; line-height: 0;"></i>
+                    <button onclick="exportCSV()" class="btn btn-success shadow-sm">
+                        <i class="bi bi-download me-1"></i> Export Data
+                    </button>
+                </div>
             </div>
 
-            <div class="card-body p-4 position-relative">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h6 class="text-white-50 fw-bold text-uppercase mb-1">
-                            <i class="bi bi-bar-chart-fill me-2"></i>ยอดผู้เข้าใช้งานสะสมทั้งหมด (Total Visits)
-                        </h6>
-                        <h1 class="display-3 fw-bold mb-0" id="lifetimeTotalCount">0</h1>
-                        <p class="mb-0 text-white-50 small mt-1">
-                            *นับรวมทุก Log ตั้งแต่เริ่มใช้งานระบบจนถึงปัจจุบัน
-                        </p>
-                    </div>
-                    
-                    <div class="col-md-4 border-start border-white border-opacity-25 ps-md-4 mt-3 mt-md-0">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span><i class="bi bi-mortarboard-fill me-2"></i>ภายใน (Internal)</span>
-                            <span class="fw-bold" id="lifetimeInternal">0</span>
-                        </div>
-                        <div class="progress bg-white bg-opacity-25" style="height: 6px;">
-                            <div id="progInternal" class="progress-bar bg-white" style="width: 0%"></div>
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm bg-primary text-white overflow-hidden position-relative">
+                        <div class="position-absolute top-0 end-0 p-3 opacity-25">
+                            <i class="bi bi-people-fill" style="font-size: 8rem; line-height: 0;"></i>
                         </div>
 
-                        <div class="d-flex justify-content-between mt-3 mb-2">
-                            <span><i class="bi bi-building me-2"></i>ภายนอก (Guest)</span>
-                            <span class="fw-bold" id="lifetimeExternal">0</span>
-                        </div>
-                        <div class="progress bg-white bg-opacity-25" style="height: 6px;">
-                            <div id="progExternal" class="progress-bar bg-warning" style="width: 0%"></div>
+                        <div class="card-body p-4 position-relative">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <h6 class="text-white-50 fw-bold text-uppercase mb-1">
+                                        <i class="bi bi-bar-chart-fill me-2"></i>ยอดผู้เข้าใช้งานสะสมทั้งหมด (Total Visits)
+                                    </h6>
+                                    <h1 class="display-3 fw-bold mb-0" id="lifetimeTotalCount">0</h1>
+                                    <p class="mb-0 text-white-50 small mt-1">
+                                        *นับรวมทุก Log ตั้งแต่เริ่มใช้งานระบบจนถึงปัจจุบัน
+                                    </p>
+                                </div>
+                                
+                                <div class="col-md-4 border-start border-white border-opacity-25 ps-md-4 mt-3 mt-md-0">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span><i class="bi bi-mortarboard-fill me-2"></i>ภายใน (Internal)</span>
+                                        <span class="fw-bold" id="lifetimeInternal">0</span>
+                                    </div>
+                                    <div class="progress bg-white bg-opacity-25" style="height: 6px;">
+                                        <div id="progInternal" class="progress-bar bg-white" style="width: 0%"></div>
+                                    </div>
+
+                                    <div class="d-flex justify-content-between mt-3 mb-2">
+                                        <span><i class="bi bi-building me-2"></i>ภายนอก (Guest)</span>
+                                        <span class="fw-bold" id="lifetimeExternal">0</span>
+                                    </div>
+                                    <div class="progress bg-white bg-opacity-25" style="height: 6px;">
+                                        <div id="progExternal" class="progress-bar bg-warning" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
+
             <div class="col-12 mb-4">
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold text-primary mb-0">
-                    <i class="bi bi-cloud-download-fill me-2"></i>ดาวน์โหลดรายงาน (Quick Export)
-                </h5>
-                <span class="text-muted small">เลือกช่วงเวลาที่ต้องการดาวน์โหลดข้อมูลเป็นไฟล์ CSV</span>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold text-primary mb-0">
+                                <i class="bi bi-cloud-download-fill me-2"></i>ดาวน์โหลดรายงาน (Quick Export)
+                            </h5>
+                            <span class="text-muted small">เลือกช่วงเวลาที่ต้องการดาวน์โหลดข้อมูลเป็นไฟล์ CSV</span>
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-3 col-6">
+                                <button onclick="exportReport('daily')" class="btn btn-outline-success w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
+                                    <i class="bi bi-calendar-check fs-2 mb-2"></i>
+                                    <span class="fw-bold">รายวัน</span>
+                                    <small class="text-muted">(Daily)</small>
+                                </button>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <button onclick="exportReport('monthly')" class="btn btn-outline-primary w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
+                                    <i class="bi bi-calendar-month fs-2 mb-2"></i>
+                                    <span class="fw-bold">รายเดือน</span>
+                                    <small class="text-muted">(Monthly)</small>
+                                </button>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <button onclick="exportReport('quarterly')" class="btn btn-outline-info w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
+                                    <i class="bi bi-calendar-range fs-2 mb-2"></i>
+                                    <span class="fw-bold">รายไตรมาส</span>
+                                    <small class="text-muted">(Quarterly)</small>
+                                </button>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <button onclick="exportReport('yearly')" class="btn btn-outline-warning text-dark w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
+                                    <i class="bi bi-calendar3 fs-2 mb-2"></i>
+                                    <span class="fw-bold">รายปี</span>
+                                    <small class="text-muted">(Yearly)</small>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <button onclick="exportReport('daily')" class="btn btn-outline-success w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
-                        <i class="bi bi-calendar-check fs-2 mb-2"></i>
-                        <span class="fw-bold">รายงานประจำวัน</span>
-                        <small class="text-muted">(Daily Report)</small>
-                    </button>
-                </div>
-                
-                <div class="col-md-4">
-                    <button onclick="exportReport('monthly')" class="btn btn-outline-primary w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
-                        <i class="bi bi-calendar-month fs-2 mb-2"></i>
-                        <span class="fw-bold">รายงานประจำเดือน</span>
-                        <small class="text-muted">(Monthly Report)</small>
-                    </button>
-                </div>
-                
-                <div class="col-md-4">
-                    <button onclick="exportReport('yearly')" class="btn btn-outline-warning text-dark w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
-                        <i class="bi bi-calendar3 fs-2 mb-2"></i>
-                        <span class="fw-bold">รายงานประจำปี</span>
-                        <small class="text-muted">(Yearly Report)</small>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
             <div class="card border-0 shadow-sm mb-4 p-3 bg-white">
                 <h5 class="fw-bold text-dark mb-3"><i class="bi bi-funnel-fill me-2"></i>ตัวกรองข้อมูลรายงาน</h5>
                 <form id="reportFilterForm">
                     <div class="row g-3 align-items-end">
-                        
-                        <div class="col-md-3 col-sm-6">
+                        <div class="col-md-2 col-sm-6">
+                            <label class="form-label small fw-bold text-primary">Period</label>
+                            <select id="filterPeriod" class="form-select form-select-sm fw-bold" onchange="autoSetDates()">
+                                <option value="custom">กำหนดเอง</option>
+                                <option value="today">วันนี้</option>
+                                <option value="this_month" selected>เดือนนี้</option>
+                                <option value="this_year">ปีนี้</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 col-sm-6">
                             <label class="form-label small fw-bold">วันที่เริ่มต้น</label>
                             <input type="date" id="filterStartDate" class="form-control form-control-sm">
                         </div>
-                        <div class="col-md-3 col-sm-6">
+                        <div class="col-md-2 col-sm-6">
                             <label class="form-label small fw-bold">วันที่สิ้นสุด</label>
                             <input type="date" id="filterEndDate" class="form-control form-control-sm">
                         </div>
 
-                        <div class="col-md-3 col-sm-6">
-                            <label class="form-label small fw-bold">คณะ / หน่วยงาน</label>
+                        <div class="col-md-2 col-sm-6">
+                            <label class="form-label small fw-bold">คณะ (Faculty)</label>
                             <select id="filterFaculty" class="form-select form-select-sm">
                                 <option value="">-- ทั้งหมด --</option>
                             </select>
                         </div>
+                        <div class="col-md-2 col-sm-6">
+                            <label class="form-label small fw-bold">หน่วยงาน / อื่นๆ</label>
+                            <select id="filterOrganization" class="form-select form-select-sm">
+                                <option value="">-- ทั้งหมด --</option>
+                            </select>
+                        </div>
                         
-                        <div class="col-md-3 col-sm-6">
+                        <div class="col-md-2 col-sm-6">
                             <label class="form-label small fw-bold">ประเภทผู้ใช้</label>
                             <select id="filterUserType" class="form-select form-select-sm">
                                 <option value="">-- ทั้งหมด --</option>
-                                <option value="Internal">ภายใน (นักศึกษา/บุคลากร)</option>
+                                <option value="Internal">ภายใน</option>
                                 <option value="External">ภายนอก</option>
                             </select>
                         </div>
 
-                        <div class="col-md-3 col-sm-6">
+                        <div class="col-md-2 col-sm-6">
                             <label class="form-label small fw-bold">ระดับการศึกษา</label>
                             <select id="filterLevel" class="form-select form-select-sm">
                                 <option value="">-- ทั้งหมด --</option>
                             </select>
                         </div>
-                        
-                        <div class="col-md-3 col-sm-6">
+                        <div class="col-md-2 col-sm-6">
                             <label class="form-label small fw-bold">ชั้นปี</label>
                             <select id="filterYear" class="form-select form-select-sm">
                                 <option value="">-- ทั้งหมด --</option>
                             </select>
                         </div>
-
-                        <div class="col-md-3 col-sm-6 d-grid">
-                            <button type="button" onclick="applyFilters()" class="btn btn-primary btn-sm fw-bold">
-                                <i class="bi bi-search me-1"></i> กรองข้อมูล
-                            </button>
-                        </div>
-                        <div class="col-md-3 col-sm-6 d-grid">
-                             <button type="button" onclick="clearFilters()" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-x-circle me-1"></i> ล้างตัวกรอง
-                            </button>
+                        <div class="col-md-4 col-sm-6">
+                            <div class="d-flex gap-2">
+                                <button type="button" onclick="applyFilters()" class="btn btn-primary btn-sm fw-bold flex-fill">
+                                    <i class="bi bi-search me-1"></i> แสดงผล
+                                </button>
+                                <button type="button" onclick="clearFilters()" class="btn btn-outline-secondary btn-sm flex-fill">
+                                    <i class="bi bi-x-circle me-1"></i> ล้างค่า
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </form>
             </div>
+
             <div class="row g-4">
                 
                 <div class="col-12">
                     <div class="card border-0 shadow-sm p-3">
-                        <h6 class="fw-bold text-dark mb-3">1. สถิติผู้ใช้งานรายเดือน แยกตามคณะ</h6>
+                        <h6 class="fw-bold text-dark mb-3">1.1 สถิติผู้ใช้งานรายเดือน (คณะ/วิทยาลัย)</h6>
                         <div class="bg-light p-3 rounded" style="height: 400px;">
-                            <canvas id="monthlyUserChart"></canvas>
+                            <canvas id="monthlyFacultyChart"></canvas>
                         </div>
                     </div>
                 </div>
 
-                <div class="col-lg-6">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm p-3">
+                        <h6 class="fw-bold text-dark mb-3">1.2 สถิติผู้ใช้งานรายเดือน (หน่วยงาน/อื่นๆ)</h6>
+                        <div class="bg-light p-3 rounded" style="height: 400px;">
+                            <canvas id="monthlyOrgChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
                     <div class="card border-0 shadow-sm p-3 h-100">
-                        <h6 class="fw-bold text-dark mb-3">2. สัดส่วนการใช้งาน AI vs Software</h6>
-                        <div class="d-flex justify-content-center" style="max-height: 350px;">
+                        <h6 class="fw-bold text-dark mb-3">2. ใช้งาน AI vs ใช้งานทั่วไป</h6>
+                        <div class="d-flex justify-content-center" style="max-height: 300px;">
                             <canvas id="aiUsagePieChart"></canvas>
                         </div>
                     </div>
                 </div>
 
-                <div class="col-lg-6">
+                <div class="col-lg-4">
                     <div class="card border-0 shadow-sm p-3 h-100">
-                        <h6 class="fw-bold text-dark mb-3">3. เวลาใช้งานเฉลี่ย (นาที) ต่อเครื่อง</h6>
-                        <div class="bg-light p-3 rounded" style="height: 350px;">
+                        <h6 class="fw-bold text-dark mb-3">3. คะแนนความพึงพอใจ (ร้อยละ)</h6>
+                        <div class="d-flex justify-content-center" style="max-height: 300px;">
+                            <canvas id="satisfactionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card border-0 shadow-sm p-3 h-100">
+                        <h6 class="fw-bold text-dark mb-3">4. เวลาใช้งานเฉลี่ย (นาที) ต่อเครื่อง</h6>
+                        <div class="bg-light p-3 rounded" style="height: 300px;">
                             <canvas id="pcAvgTimeChart"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
             
-<div class="row g-4 mt-1">
-    <div class="col-12">
-        <div class="card border-0 shadow-sm p-3">
-            <h6 class="fw-bold text-dark mb-3">4. ประวัติการใช้งานโดยละเอียด (Log History)</h6>
-            
-            <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                <table class="table table-sm table-striped table-hover align-middle mb-0">
-                    <thead class="table-dark sticky-top">
-                        <tr>
-                            <th class="text-center">ลำดับ</th>
-                            <th>วันที่</th>
-                            <th class="text-nowrap">เวลาเข้า</th>
-                            <th class="text-nowrap">เวลาออก</th>
-                            <th>ผู้ใช้ / ID</th>
-                            <th>PC ที่ใช้</th>
-                            <th>AI/Software ที่ใช้</th> 
-                            <th>สถานะ</th>
-                            <th class="text-end">ระยะเวลา</th>
-                            <th>ความพึงพอใจ</th> 
-                        </tr>
-                    </thead>
-                    <tbody id="logHistoryTableBody">
-                        </tbody>
-                </table>
+            <div class="row g-4 mt-1">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm p-3">
+                        <h6 class="fw-bold text-dark mb-3">5. ประวัติการใช้งานโดยละเอียด (Log History)</h6>
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-sm table-striped table-hover align-middle mb-0">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th class="text-center">ลำดับ</th>
+                                        <th>วันที่</th>
+                                        <th class="text-nowrap">เวลาเข้า</th>
+                                        <th class="text-nowrap">เวลาออก</th>
+                                        <th>ผู้ใช้ / ID</th>
+                                        <th>PC ที่ใช้</th>
+                                        <th>AI/Software ที่ใช้</th> 
+                                        <th>สถานะ</th>
+                                        <th class="text-end">ระยะเวลา</th>
+                                        <th>ความพึงพอใจ</th> 
+                                    </tr>
+                                </thead>
+                                <tbody id="logHistoryTableBody">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
-
-        </div>
-    </div>
-</div>
 
         </div>
     </div>
