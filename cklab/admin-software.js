@@ -1,28 +1,25 @@
-/* admin-software.js */
+/* admin-software.js (Standard Version + Search) */
 
 let softwareModal;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. เช็คสิทธิ์ Admin
     const session = DB.getSession();
     if (!session || !session.user || session.user.role !== 'admin') {
         window.location.href = 'admin-login.html';
         return;
     }
 
-    // 2. Init Modal
     const modalEl = document.getElementById('softwareModal');
     if(modalEl) softwareModal = new bootstrap.Modal(modalEl);
 
-    // 3. Render Table
     renderTable();
 });
 
 function renderTable() {
     const tbody = document.getElementById('softwareTableBody');
-    const lib = DB.getSoftwareLib(); // ดึงข้อมูลจาก mock-db
+    let lib = DB.getSoftwareLib(); 
 
-    // ✅ ส่วนที่เพิ่ม: อัปเดตตัวเลขในการ์ดสถิติ
+    // --- ส่วนที่ 1: อัปเดตตัวเลขในการ์ด (นับจากทั้งหมด) ---
     const total = lib.length;
     const aiCount = lib.filter(i => i.type === 'AI').length;
     const swCount = lib.filter(i => i.type === 'Software').length;
@@ -30,12 +27,25 @@ function renderTable() {
     if(document.getElementById('countTotal')) document.getElementById('countTotal').innerText = total;
     if(document.getElementById('countAI')) document.getElementById('countAI').innerText = aiCount;
     if(document.getElementById('countSW')) document.getElementById('countSW').innerText = swCount;
-    // ----------------------------------------------------
 
+    // --- ส่วนที่ 2: ระบบค้นหา (Search Logic) ---
+    // รับค่าจากช่องค้นหา
+    const searchInput = document.getElementById('softwareSearch');
+    const searchVal = searchInput ? searchInput.value.toLowerCase() : '';
+    
+    // ถ้ามีคำค้นหา ให้กรองข้อมูล
+    if (searchVal) {
+        lib = lib.filter(item => 
+            item.name.toLowerCase().includes(searchVal) || 
+            item.version.toLowerCase().includes(searchVal)
+        );
+    }
+
+    // --- ส่วนที่ 3: แสดงผลตาราง ---
     tbody.innerHTML = '';
 
     if (lib.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-muted">ไม่พบข้อมูล (กดปุ่มเพิ่มรายการใหม่)</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>`;
         return;
     }
 
@@ -112,6 +122,10 @@ function saveSoftware() {
 
     DB.saveSoftwareLib(lib);
     if(softwareModal) softwareModal.hide();
+    
+    // ล้างช่องค้นหาเพื่อให้เห็นข้อมูลใหม่ที่เพิ่มเข้าไป (Optional)
+    // document.getElementById('softwareSearch').value = '';
+    
     renderTable();
 }
 
