@@ -1,4 +1,4 @@
-/* feedback.js - Final Fix: Stability and Full Session Check-out */
+/* feedback.js - Fixed: Property Name Bug (pc.software -> pc.installedSoftware) */
 
 let currentRate = 5; // คะแนนที่ถูกเลือก
 let sessionData = null; // เก็บข้อมูล Session ที่โหลดมา
@@ -74,7 +74,7 @@ function resetHover() {
 }
 
 
-// --- 3. ฟังก์ชันส่งข้อมูล (Submit) - FIXED ---
+// --- 3. ฟังก์ชันส่งข้อมูล (Submit) ---
 
 function submitFeedback() {
     const session = sessionData; // ใช้ข้อมูล Session ที่โหลดไว้ตอน DOMContentLoaded
@@ -101,6 +101,9 @@ function submitFeedback() {
              throw new Error(`PC ID ${pcId} not found in DB.`);
         }
         
+        // ✅ แก้ไขจุดที่ผิด: ใช้ installedSoftware แทน software
+        const installedApps = pc.installedSoftware || [];
+
         // 2. บันทึก Log สิ้นสุด Session ที่สมบูรณ์
         const user = session.user || {};
         
@@ -120,8 +123,9 @@ function submitFeedback() {
             satisfactionScore: satisfactionScore, 
             comment: comment, 
             
-            usedSoftware: pc.software || [], 
-            isAIUsed: pc.software.some(s => s.toLowerCase().includes('ai') || s.toLowerCase().includes('gpt'))
+            // ✅ ใช้ตัวแปรที่แก้แล้วตรงนี้
+            usedSoftware: installedApps, 
+            isAIUsed: installedApps.some(s => s.toLowerCase().includes('ai') || s.toLowerCase().includes('gpt'))
         });
 
         // 3. อัปเดตสถานะ PC
@@ -138,7 +142,7 @@ function submitFeedback() {
 
     } catch (error) {
         console.error("Critical Feedback Submission Error:", error);
-        alert("❌ เกิดข้อผิดพลาดร้ายแรงในการบันทึกข้อมูล Log (โปรดแจ้งเจ้าหน้าที่)");
+        alert("❌ เกิดข้อผิดพลาดร้ายแรงในการบันทึกข้อมูล Log (โปรดแจ้งเจ้าหน้าที่: " + error.message + ")");
         submitButton.disabled = false;
     }
 }
