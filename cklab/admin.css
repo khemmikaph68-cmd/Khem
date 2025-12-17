@@ -447,3 +447,22 @@ body {
 .border-top-warning { border-top-color: #ffc107 !important; }
 .border-top-secondary { border-top-color: #6c757d !important; }
 
+/* Scrollable Chart Styles */
+.chart-scroll-wrapper {
+    overflow-x: auto;
+    padding-bottom: 10px;
+    scrollbar-width: thin;
+}
+.chart-scroll-wrapper::-webkit-scrollbar {
+    height: 8px;
+    background-color: #f1f1f1;
+}
+.chart-scroll-wrapper::-webkit-scrollbar-thumb {
+    background-color: #cbd5e0;
+    border-radius: 10px;
+}
+.chart-min-width {
+    min-width: 1200px; /* ยืดกราฟให้ยาวกว่าจอ */
+    height: 350px;
+    position: relative;
+}
