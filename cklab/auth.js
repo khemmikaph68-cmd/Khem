@@ -1,4 +1,4 @@
-/* auth.js - Fixed Station Version (Updated for Booking Check-in) */
+/* auth.js - Fixed Station Version (Final: Dynamic Time Slots & Lab Status) */
 
 // ==========================================
 // 🔧 SYSTEM CONFIG: ดึงเลขเครื่องจาก URL
@@ -76,46 +76,39 @@ function checkMachineStatus() {
     } 
 }
 
-/* ในไฟล์ auth.js ค้นหาฟังก์ชัน switchTab แล้วแก้เป็นแบบนี้ครับ */
-
 function switchTab(type) {
     activeTab = type;
     verifiedUserData = null;
     
-    // จัดการ Class ปุ่ม Tab (เหมือนเดิม)
+    // จัดการ Class ปุ่ม Tab
     document.getElementById('tab-internal').classList.toggle('active', type === 'internal');
     document.getElementById('tab-external').classList.toggle('active', type === 'external');
     document.getElementById('formInternal').classList.toggle('d-none', type !== 'internal');
     document.getElementById('formExternal').classList.toggle('d-none', type !== 'external');
     document.getElementById('internalVerifyCard').style.display = 'none';
     
-    // เคลียร์ค่า input (เหมือนเดิม)
+    // เคลียร์ค่า input
     if (type === 'internal') {
         document.getElementById('ubuUser').value = '';
     }
 
-    // ✅✅✅ ส่วนที่เพิ่ม: จัดการปุ่ม Radio Button ✅✅✅
+    // จัดการปุ่ม Radio Button
     const radioBooking = document.querySelector('input[value="booking"]');
     const radioWalkin = document.querySelector('input[value="walkin"]');
-    const radioBookingLabel = radioBooking.closest('.btn'); // หาปุ่มครอบ Radio
+    const radioBookingLabel = radioBooking.closest('.btn'); 
 
     if (type === 'external') {
-        // 1. บังคับเลือก Walk-in
         radioWalkin.checked = true;
-        
-        // 2. ปิดการใช้งานปุ่ม Booking (Disable & สีจางลง)
         radioBooking.disabled = true;
         if(radioBookingLabel) {
-            radioBookingLabel.classList.add('opacity-50', 'pe-none'); // ทำให้จางและกดไม่ได้
+            radioBookingLabel.classList.add('opacity-50', 'pe-none'); 
         }
     } else {
-        // กรณีกลับมาเป็น Internal: เปิดให้กดได้ปกติ
         radioBooking.disabled = false;
         if(radioBookingLabel) {
             radioBookingLabel.classList.remove('opacity-50', 'pe-none');
         }
     }
-    // ✅✅✅ จบส่วนที่เพิ่ม ✅✅✅
 
     validateForm();
 }
@@ -165,7 +158,6 @@ function validateForm() {
     
     const pc = DB.getPCs().find(p => p.id == FIXED_PC_ID);
     
-    // อนุญาตให้ปุ่มทำงานได้ ถ้าเครื่องว่าง OR ถูกจองไว้ (reserved)
     const isAccessible = pc && (pc.status === 'available' || pc.status === 'reserved');
 
     if (isUserValid && isAccessible) {
@@ -188,15 +180,21 @@ function validateForm() {
     }
 }
 
-// ✅ ฟังก์ชันยืนยันการเข้าใช้งาน (Check-in) ที่เพิ่ม Logic ตรวจสอบการจอง
+// ✅ ฟังก์ชันยืนยันการเข้าใช้งาน (Check-in) ฉบับสมบูรณ์
 function confirmCheckIn() {
-    // 1. ตรวจสอบว่ามีข้อมูลผู้ใช้ที่ Verify ผ่านแล้วหรือไม่
+    // ✅✅✅ 1. ตรวจสอบสถานะห้อง (Lab Status) ✅✅✅
+    const config = DB.getGeneralConfig();
+    if (config.labStatus === 'closed') {
+        alert(`⛔ ขออภัย ห้องปิดให้บริการชั่วคราว\n\nข้อความจากเจ้าหน้าที่: "${config.adminMessage}"\n\nหากท่านมีคิวจอง กรุณาติดต่อเจ้าหน้าที่เมื่อห้องเปิดเพื่อขอชดเชยเวลา`);
+        return; // ห้ามเข้า
+    }
+
+    // 2. ตรวจสอบข้อมูลผู้ใช้
     if (!verifiedUserData && activeTab === 'internal') {
         alert('กรุณาตรวจสอบข้อมูลผู้ใช้ก่อน (กดปุ่มตรวจสอบ)');
         return;
     }
 
-    // เตรียมข้อมูลผู้ใช้กรณี External
     if (activeTab === 'external') {
         verifiedUserData = {
             id: document.getElementById('extIdCard').value.trim(),
@@ -208,46 +206,68 @@ function confirmCheckIn() {
         };
     }
 
-    // 2. ใช้ PC ID ที่ได้จาก URL (FIXED_PC_ID)
     const pcId = FIXED_PC_ID; 
 
-    // 3. ✅ ตรวจสอบประเภทการใช้งาน (Walk-in vs Booking)
+    // ✅✅✅ 3. ตรวจสอบรอบเวลา AI (Dynamic Slots) ✅✅✅
+    const now = new Date();
+    const currentHm = now.getHours() * 60 + now.getMinutes();
+    let currentSlot = null;
+
+    // ดึงข้อมูล Slot จาก Database (ไม่ใช่ตัวแปร Global แล้ว)
+    const allSlots = DB.getAiTimeSlots ? DB.getAiTimeSlots() : [];
+    // กรองเฉพาะรอบที่เปิด (Active)
+    const activeSlots = allSlots.filter(s => s.active);
+
+    activeSlots.forEach(slot => {
+        const [sh, sm] = slot.start.split(':').map(Number);
+        const [eh, em] = slot.end.split(':').map(Number);
+        const startMins = sh * 60 + sm;
+        const endMins = eh * 60 + em;
+
+        // อนุญาตให้เข้าก่อนเวลาได้ 15 นาที และต้องไม่เกินเวลาจบ
+        if (currentHm >= (startMins - 15) && currentHm < endMins) {
+            currentSlot = { ...slot, endMins }; 
+        }
+    });
+
+    const pcInfo = DB.getPCs().find(p => String(p.id) === String(pcId));
+    
+    // ถ้าเป็นเครื่อง AI แล้วไม่อยู่ในรอบเวลา -> ห้ามเข้า
+    if (pcInfo && pcInfo.pcType === 'AI' && !currentSlot) {
+         // สร้างข้อความแจ้งเตือนรอบที่เปิดอยู่จริง
+         let availableTimes = activeSlots.map(s => s.label || `${s.start}-${s.end}`).join(', ');
+         if (!availableTimes) availableTimes = "ไม่มีรอบเปิดให้บริการขณะนี้";
+
+         alert(`⛔ ขณะนี้ไม่อยู่ในช่วงเวลาให้บริการ AI Station\n\nรอบที่เปิดให้บริการ:\n${availableTimes}`);
+         return; 
+    }
+    // ✅✅✅ จบส่วนตรวจสอบเวลา ✅✅✅
+
+
+    // 4. ตรวจสอบประเภทการใช้งาน (Walk-in vs Booking)
     const usageTypeEl = document.querySelector('input[name="usageType"]:checked');
     const usageType = usageTypeEl ? usageTypeEl.value : 'walkin';
 
     if (usageType === 'booking') {
-        const bookings = DB.getBookings(); // ดึงข้อมูลการจองทั้งหมด
+        const bookings = DB.getBookings(); 
         const todayStr = new Date().toLocaleDateString('en-CA');
-        const now = new Date();
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-        // ค้นหา Booking ที่ตรงเงื่อนไข
         const validBooking = bookings.find(b => 
-            String(b.pcId) === String(pcId) &&      // ตรงเครื่อง
-            b.date === todayStr &&                   // ตรงวัน
-            b.status === 'approved' &&               // สถานะอนุมัติ
-            b.userName === verifiedUserData.name     // ชื่อตรงกับที่ Verify
+            String(b.pcId) === String(pcId) &&     
+            b.date === todayStr &&                  
+            b.status === 'approved' &&              
+            b.userName === verifiedUserData.name    
         );
 
         if (!validBooking) {
             alert(`⚠️ ไม่พบข้อมูลการจอง!\n\nคุณ ${verifiedUserData.name} ไม่ได้จองเครื่อง PC-${pcId} ไว้ในวันนี้\n\nกรุณาเลือก "Walk-in" หรือตรวจสอบเครื่องที่ท่านจองครับ`);
-            return; // ❌ หยุดการทำงานทันที
+            return; 
         }
 
-        // (Optional) เช็คเวลาเข้าสาย/ก่อนเวลา
-        const [startH, startM] = validBooking.startTime.split(':').map(Number);
-        const bookingStartMins = startH * 60 + startM;
-        
-        // ยอมให้เข้าก่อนเวลา 15 นาที
-        if (currentMinutes < (bookingStartMins - 15)) {
-            alert(`⏳ ยังไม่ถึงเวลาจอง\nคิวของคุณคือ ${validBooking.startTime} - ${validBooking.endTime}`);
-            return;
-        }
         DB.updateBookingStatus(validBooking.id, 'completed');
     }
-    // ✅ จบส่วนที่เพิ่ม
 
-    // 4. บันทึก Session และเปลี่ยนหน้า
+    // 5. บันทึก Session และเปลี่ยนหน้า
     const sessionData = {
         user: {
             id: verifiedUserData.id,
@@ -257,13 +277,16 @@ function confirmCheckIn() {
         },
         pcId: pcId,
         startTime: Date.now(),
-        loginMethod: usageType
+        loginMethod: usageType,
+
+        // เพิ่มข้อมูล Slot และเวลาบังคับจบ (เฉพาะ AI)
+        slotId: currentSlot ? currentSlot.id : null,
+        forceEndTime: currentSlot ? currentSlot.endMins : null 
     };
 
-    DB.setSession(sessionData); // บันทึก Session ลง LocalStorage
-    DB.updatePCStatus(pcId, 'in_use', verifiedUserData.name); // อัปเดตสถานะเครื่องใน DB
+    DB.setSession(sessionData); 
+    DB.updatePCStatus(pcId, 'in_use', verifiedUserData.name); 
 
-    // บันทึก Log
     DB.saveLog({
         action: 'START_SESSION',
         userId: verifiedUserData.id,
@@ -272,9 +295,9 @@ function confirmCheckIn() {
         userFaculty: verifiedUserData.faculty,
         pcId: pcId,
         startTime: new Date().toISOString(),
-        details: usageType === 'booking' ? 'User Check-in (Booking)' : 'User Check-in (Walk-in)'
+        details: usageType === 'booking' ? 'User Check-in (Booking)' : 'User Check-in (Walk-in)',
+        slotId: currentSlot ? currentSlot.id : null 
     });
 
-    // ไปยังหน้าจับเวลา
     window.location.href = 'timer.html';
 }

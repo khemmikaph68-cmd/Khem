@@ -1,10 +1,30 @@
-/* mock-db.js (Final Version: +Booking Status Logic) */
+/* mock-db.js (Final Version: Dynamic Time Slots Support) */
+
+// ==========================================
+// 0. GLOBAL CONFIG (การตั้งค่าทั่วไป)
+// ==========================================
+
+// ❌ ลบตัวแปรนี้ออก หรือเปลี่ยนเป็น Comment เพราะเราจะย้ายไปเก็บใน DB แทน
+// เพื่อให้สามารถกด เปิด-ปิด ได้ครับ
+/* const AI_TIME_SLOTS = [
+    { id: 1, start: "09:00", end: "10:30", label: "09:00 - 10:30" },
+    ...
+]; 
+*/
 
 // ==========================================
 // 1. MOCK DATA (ข้อมูลจำลอง)
 // ==========================================
 
-// 1.0 ข้อมูลการจอง (Booking)
+// ✅ 1.0 ข้อมูลรอบเวลามาตรฐาน (เพิ่ม active: true เพื่อบอกว่าเปิดใช้งานอยู่)
+const DEFAULT_AI_SLOTS = [
+    { id: 1, start: "09:00", end: "10:30", label: "09:00 - 10:30", active: true },
+    { id: 2, start: "10:30", end: "12:00", label: "10:30 - 12:00", active: true },
+    { id: 3, start: "13:00", end: "15:00", label: "13:00 - 15:00", active: true }, 
+    { id: 4, start: "15:00", end: "16:30", label: "15:00 - 16:30", active: true }
+];
+
+// 1.1 ข้อมูลการจอง (Booking)
 const DEFAULT_BOOKINGS = [
     { 
         id: 'b1', 
@@ -39,7 +59,7 @@ const DEFAULT_SOFTWARE = [
     { id: "s9", name: "Canva", version: "Pro", type: "Software" }
 ];
 
-// 1.1 ข้อมูลเครื่องคอมพิวเตอร์
+// 1.3 ข้อมูลเครื่องคอมพิวเตอร์
 const DEFAULT_PCS = [
     { 
         id: "1", name: "PC-01", status: "available", 
@@ -67,19 +87,19 @@ const DEFAULT_PCS = [
     }
 ];
 
-// 1.3 ข้อมูลผู้ดูแลระบบ (Admins)
+// 1.4 ข้อมูลผู้ดูแลระบบ (Admins)
 const DEFAULT_ADMINS = [
     { id: "a1", name: "Super Admin", user: "admin", pass: "1234", role: "Super Admin" },
     { id: "a2", name: "Staff Member", user: "staff", pass: "5678", role: "Staff" }
 ];
 
-// 1.4 ข้อมูลโซนที่นั่ง (Zones)
+// 1.5 ข้อมูลโซนที่นั่ง (Zones)
 const DEFAULT_ZONES = [
     { id: "z1", name: "Zone A (General)" },
     { id: "z2", name: "Zone B (Quiet)" }
 ];
 
-// 1.5 ข้อมูล Config ทั่วไปเริ่มต้น
+// 1.6 ข้อมูล Config ทั่วไปเริ่มต้น
 const DEFAULT_GENERAL_CONFIG = {
     labName: "CKLab Computer Center",
     contactEmail: "cklab@ubu.ac.th",
@@ -88,7 +108,7 @@ const DEFAULT_GENERAL_CONFIG = {
 };
 
 
-// 1.6 จำลอง External System: REG API
+// 1.7 จำลอง External System: REG API
 const MOCK_REG_DB = {
     "66123456": { prefix: "นาย", name: "สมชาย รักเรียน", faculty: "วิศวกรรมศาสตร์", department: "คอมพิวเตอร์", year: "3", level: "ปริญญาตรี", role: "student" },
     "66112233": { prefix: "นางสาว", name: "มานี มีปัญญา", faculty: "วิทยาศาสตร์", department: "วิทยาการคอมพิวเตอร์", year: "2", level: "ปริญญาตรี", role: "student" },
@@ -135,7 +155,7 @@ const MOCK_REG_DB = {
 };
 
 
-// 1.7 ข้อมูล Log จำลอง
+// 1.8 ข้อมูล Log จำลอง
 const MOCK_REG_DB_USERS_FOR_LOG = Object.values(MOCK_REG_DB); 
 
 function generateMockLogEntry(dateOffsetDays) {
@@ -210,6 +230,10 @@ const DB = {
     },
     setData: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
 
+    // ✅ 2.1 เพิ่มฟังก์ชันจัดการ Time Slots (ดึงและบันทึก)
+    getAiTimeSlots: () => DB.getData('ck_ai_slots', DEFAULT_AI_SLOTS),
+    saveAiTimeSlots: (data) => DB.setData('ck_ai_slots', data),
+
     // PC Management
     getPCs: () => DB.getData('ck_pcs', DEFAULT_PCS),
     savePCs: (data) => DB.setData('ck_pcs', data),
@@ -229,7 +253,6 @@ const DB = {
     getBookings: () => DB.getData('ck_bookings', DEFAULT_BOOKINGS),
     saveBookings: (data) => DB.setData('ck_bookings', data),
 
-    // ✅ เพิ่มฟังก์ชันอัปเดตสถานะ Booking (เช่น approved -> completed)
     updateBookingStatus: (bookingId, newStatus) => {
         let bookings = DB.getBookings();
         const index = bookings.findIndex(b => b.id === bookingId);

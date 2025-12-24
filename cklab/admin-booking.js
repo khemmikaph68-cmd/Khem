@@ -1,4 +1,4 @@
-/* admin-booking.js (Fixed: Sync Status with Monitor Logic) */
+/* admin-booking.js (Fixed: Sync Status with Monitor Logic & Dynamic Slots) */
 
 let bookingModal;
 
@@ -40,7 +40,7 @@ function renderBookings() {
     }
 
     filtered.sort((a, b) => {
-        // ✅ แก้ไข: เปลี่ยน reserved -> approved ในลำดับความสำคัญ
+        // เรียงลำดับความสำคัญสถานะ
         const priority = { 'approved': 1, 'pending': 2, 'completed': 3, 'no_show': 4, 'rejected': 5 };
         const statusDiff = (priority[a.status] || 99) - (priority[b.status] || 99);
         if (statusDiff !== 0) return statusDiff;
@@ -53,13 +53,11 @@ function renderBookings() {
         switch(b.status) {
             case 'pending':
                 badgeClass = 'bg-warning text-dark'; statusText = 'รออนุมัติ';
-                // ปุ่มอนุมัติ (เปลี่ยนเป็น approved)
                 actionBtns = `
                     <button class="btn btn-sm btn-success me-1" onclick="updateStatus('${b.id}', 'approved')"><i class="bi bi-check-lg"></i></button>
                     <button class="btn btn-sm btn-danger" onclick="updateStatus('${b.id}', 'rejected')"><i class="bi bi-x-lg"></i></button>`;
                 break;
             
-            // ✅ แก้ไข: Case นี้ต้องเป็น 'approved' (สถานะจองสำเร็จ)
             case 'approved':
                 badgeClass = 'bg-primary text-white'; statusText = 'อนุมัติแล้ว (Approved)';
                 actionBtns = `
@@ -127,7 +125,32 @@ function openBookingModal() {
     const now = new Date();
     document.getElementById('bkUser').value = '';
     document.getElementById('bkDate').value = now.toISOString().split('T')[0];
-    document.getElementById('bkTimeSlot').selectedIndex = 0; 
+    
+    // ✅✅✅ แก้ไข: ดึงรอบเวลาจาก DB (Dynamic) ✅✅✅
+    const slotSelect = document.getElementById('bkTimeSlot');
+    slotSelect.innerHTML = ''; // ล้างค่าเดิม
+    
+    // ใช้ฟังก์ชัน getAiTimeSlots จาก mock-db.js
+    const allSlots = (DB.getAiTimeSlots && typeof DB.getAiTimeSlots === 'function') 
+                     ? DB.getAiTimeSlots() 
+                     : [];
+    
+    // กรองเฉพาะรอบที่ Active (เปิดใช้งาน)
+    const activeSlots = allSlots.filter(s => s.active);
+
+    if (activeSlots.length > 0) {
+        activeSlots.forEach(slot => {
+            const option = document.createElement('option');
+            option.value = `${slot.start}-${slot.end}`;
+            option.text = slot.label || `${slot.start} - ${slot.end}`;
+            slotSelect.appendChild(option);
+        });
+    } else {
+        // กรณีปิดทุกรอบ
+        slotSelect.innerHTML = '<option value="" disabled selected>⛔ ปิดให้บริการชั่วคราว (ไม่มีรอบเวลา)</option>';
+    }
+    // ✅✅✅ จบส่วนแก้ไข ✅✅✅
+
     document.getElementById('bkTypeSelect').value = 'General';
     document.getElementById('bkSoftwareFilter').value = '';
     
@@ -260,6 +283,10 @@ function saveBooking() {
     const inputUser = document.getElementById('bkUser').value.trim(); 
     
     const timeSlotVal = document.getElementById('bkTimeSlot').value;
+    if (!timeSlotVal) {
+        alert("กรุณาเลือกรอบเวลา (หากไม่มีรอบเวลา แสดงว่าปิดให้บริการช่วงนี้)");
+        return;
+    }
     const [start, end] = timeSlotVal.split('-'); 
     
     const type = document.getElementById('bkTypeSelect').value;
@@ -309,7 +336,7 @@ function saveBooking() {
         endTime: end,
         type: type,
         softwareList: selectedSoftware, 
-        // ✅ แก้ไข: บันทึกเป็น 'approved' ทันทีเมื่อ Admin จองเอง
+        // ✅ บันทึกเป็น 'approved' ทันทีเมื่อ Admin จองเอง
         status: 'approved'
     };
 

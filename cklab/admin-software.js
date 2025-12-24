@@ -1,4 +1,4 @@
-/* admin-software.js (Updated for Pastel UI) */
+/* admin-software.js (Updated: Manage Software + Manage Time Slots) */
 
 let softwareModal;
 
@@ -14,9 +14,79 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalEl = document.getElementById('softwareModal');
     if(modalEl) softwareModal = new bootstrap.Modal(modalEl);
 
-    // 3. Render Table
-    renderTable();
+    // 3. Render Data
+    renderTable();      // วาดตาราง Software
+    renderTimeSlots();  // ✅ วาดปุ่มจัดการเวลา (ส่วนที่ขาดไป)
 });
+
+// ==========================================
+// ✅✅✅ TIME SLOT MANAGEMENT (ส่วนที่เพิ่ม) ✅✅✅
+// ==========================================
+
+function renderTimeSlots() {
+    const container = document.getElementById('timeSlotContainer');
+    if (!container) return;
+
+    // ดึงข้อมูลจาก DB (ถ้าไม่มีฟังก์ชันนี้ ให้เช็ค mock-db.js อีกที)
+    const slots = (DB.getAiTimeSlots && typeof DB.getAiTimeSlots === 'function') 
+                  ? DB.getAiTimeSlots() 
+                  : [];
+
+    container.innerHTML = '';
+
+    if (slots.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center text-muted py-3">ไม่พบข้อมูลรอบเวลา</div>';
+        return;
+    }
+
+    slots.forEach(slot => {
+        // เช็คว่า Active หรือไม่ เพื่อกำหนดสีและสถานะสวิตช์
+        const isChecked = slot.active ? 'checked' : '';
+        const statusText = slot.active ? 'เปิดให้บริการ' : 'ปิดชั่วคราว';
+        const statusClass = slot.active ? 'text-success' : 'text-muted';
+        const cardBorder = slot.active ? 'border-primary' : 'border-secondary';
+        const bgClass = slot.active ? 'bg-white' : 'bg-light';
+
+        container.innerHTML += `
+            <div class="col-md-3 col-sm-6">
+                <div class="card h-100 ${bgClass} ${cardBorder} border-opacity-25 shadow-sm">
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center py-3">
+                        <h5 class="fw-bold mb-1">${slot.start} - ${slot.end}</h5>
+                        <small class="fw-bold ${statusClass} mb-3">● ${statusText}</small>
+                        
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" 
+                                   id="slot_${slot.id}" ${isChecked} 
+                                   onchange="toggleTimeSlot(${slot.id})">
+                            <label class="form-check-label small text-muted" for="slot_${slot.id}">สถานะ</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+}
+
+function toggleTimeSlot(id) {
+    let slots = DB.getAiTimeSlots();
+    const index = slots.findIndex(s => s.id === id);
+    if (index !== -1) {
+        slots[index].active = !slots[index].active; // สลับค่า True/False
+        DB.saveAiTimeSlots(slots);
+        renderTimeSlots(); // รีเฟรชหน้าจอ
+    }
+}
+
+function resetDefaultSlots() {
+    if(confirm("ต้องการรีเซ็ตเวลากลับเป็นค่าเริ่มต้น (เปิดทุกรอบ) หรือไม่?")) {
+        localStorage.removeItem('ck_ai_slots'); // ลบค่าที่แก้ไว้ออก
+        renderTimeSlots(); // โหลดใหม่จาก Default ใน mock-db
+    }
+}
+
+// ==========================================
+// 💻 SOFTWARE MANAGEMENT (ส่วนเดิม)
+// ==========================================
 
 function renderTable() {
     const tbody = document.getElementById('softwareTableBody');
@@ -126,8 +196,6 @@ function updateTypeCardUI(type) {
     const cards = document.querySelectorAll('.software-type-card');
     cards.forEach(card => card.classList.remove('active'));
     
-    // Logic เลือกการ์ด: เช็คจาก onclick text หรือลำดับ (Software=ใบแรก, AI=ใบสอง)
-    // ใน HTML ของคุณ: Software อยู่ div แรก, AI อยู่ div สอง
     if (type === 'Software') {
         if(cards[0]) cards[0].classList.add('active');
     } else {
@@ -139,7 +207,7 @@ function saveSoftware() {
     const id = document.getElementById('editId').value;
     const name = document.getElementById('editName').value.trim();
     const version = document.getElementById('editVersion').value.trim();
-    const type = document.getElementById('editType').value; // รับค่าจาก Hidden Input
+    const type = document.getElementById('editType').value;
     const expire = document.getElementById('editExpire').value;
 
     if (!name || !version) return alert("กรุณากรอกชื่อและเวอร์ชันให้ครบถ้วน");

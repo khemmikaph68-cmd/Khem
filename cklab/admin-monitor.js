@@ -1,4 +1,8 @@
-/* admin-monitor.js (Final Enhanced Version: Real-time + Booking Logic Fixes) */
+/* admin-monitor.js (Fixed: Dynamic Time Slots & Admin Extend) */
+
+// ==========================================
+// ⚙️ Global Constants & Variables
+// ==========================================
 
 let checkInModal;
 let currentTab = 'internal';
@@ -8,7 +12,7 @@ let searchQuery = '';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. เช็คสิทธิ์ Admin
-    const session = DB.getSession();
+    // const session = DB.getSession();
     // if (!session || !session.user || session.user.role !== 'admin') window.location.href = 'admin-login.html';
 
     // 2. Init Modal
@@ -24,10 +28,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Auto Refresh
     setInterval(() => {
+        // อัปเดตหน้าจอเฉพาะตอนที่ไม่ได้เปิด Modal อยู่ (กันข้อมูลเปลี่ยนตอนกำลังกรอก)
         if (modalEl && !modalEl.classList.contains('show')) {
             renderMonitor();
         }
-    }, 2000); // 2 วินาทีเพื่อให้ดู Realtime
+    }, 2000); // 2 วินาที
     
     setInterval(updateClock, 1000);
     setInterval(checkAndSwitchBookingQueue, 60000); // เช็คคิวทุก 1 นาที
@@ -40,7 +45,7 @@ function updateClock() {
 }
 
 // ==========================================
-// 🔄 Auto Booking Switcher (ฉลาดขึ้น + จัดการ No-Show)
+// 🔄 Auto Booking Switcher
 // ==========================================
 function checkAndSwitchBookingQueue() {
     const pcs = DB.getPCs();
@@ -51,7 +56,7 @@ function checkAndSwitchBookingQueue() {
     let hasChanges = false;
 
     pcs.forEach(pc => {
-        // ข้ามเครื่องที่กำลังใช้งานจริง (In Use) ยกเว้นว่าเป็น Admin อยากให้ระบบทับ
+        // ข้ามเครื่องที่กำลังใช้งานจริง หรือ ซ่อม
         if (pc.status === 'in_use' || pc.status === 'maintenance') return;
 
         // หาการจองที่ "Approve" แล้ว ของ "วันนี้" และ "เครื่องนี้"
@@ -68,9 +73,9 @@ function checkAndSwitchBookingQueue() {
             const start = sh * 60 + sm;
             const end = eh * 60 + em;
 
-            // ✅ เพิ่ม Logic No-Show: ถ้าเลยเวลาเริ่มไป 15 นาทีแล้ว ยังไม่ Check-in (สถานะยัง approved)
+            // Logic No-Show: ถ้าเลยเวลาเริ่มไป 15 นาทีแล้ว ยังไม่ Check-in
             if (currentMinutes > (start + 15) && b.status === 'approved') {
-                return false; // ถือว่า booking นี้ใช้ไม่ได้แล้ว (ปล่อยให้หลุดไป)
+                return false; 
             }
 
             // แถมเวลาให้ Check-in ก่อน 15 นาที (Buffer)
@@ -84,7 +89,7 @@ function checkAndSwitchBookingQueue() {
                 hasChanges = true;
             }
         } else {
-            // หมดเวลาจองแล้ว หรือไม่มีคิว (หรือสายเกินกำหนด) -> คืนสถานะว่าง
+            // หมดเวลาจองแล้ว หรือไม่มีคิว -> คืนสถานะว่าง
             if (pc.status === 'reserved') {
                 DB.updatePCStatus(pc.id, 'available');
                 hasChanges = true;
@@ -176,15 +181,43 @@ function renderMonitor() {
             `<div class="mt-2 small text-dark fw-bold text-truncate" title="${pc.currentUser}"><i class="bi bi-person-fill"></i> ${pc.currentUser}</div>` : 
             `<div class="mt-2 small text-muted">-</div>`;
 
+        // 1. หา Active Booking
         let activeBooking = bookings.find(b => 
             String(b.pcId) === String(pc.id) && b.date === todayStr && b.status === 'approved' &&
             (pc.currentUser ? b.userName === pc.currentUser : true)
         );
 
+        // 2. Time Slot Info
         let timeSlotInfo = activeBooking ? 
             `<div class="badge bg-warning text-dark mt-1 border"><i class="bi bi-calendar-check"></i> ${activeBooking.startTime} - ${activeBooking.endTime}</div>` : 
             `<div class="mt-1" style="height: 21px;"></div>`;
 
+        // ✅✅✅ 3. Logic แสดง Slot ปัจจุบัน (In Use) แบบ Dynamic ✅✅✅
+        if (pc.status === 'in_use') {
+            const now = new Date();
+            const cur = now.getHours() * 60 + now.getMinutes();
+            
+            // ดึงข้อมูล Slot จาก Database แทนตัวแปร Global
+            const allSlots = (DB.getAiTimeSlots && typeof DB.getAiTimeSlots === 'function') ? DB.getAiTimeSlots() : [];
+            const activeSlots = allSlots.filter(s => s.active);
+
+            if (activeSlots.length > 0) {
+                const activeSlot = activeSlots.find(s => {
+                    const [sh, sm] = s.start.split(':').map(Number);
+                    const [eh, em] = s.end.split(':').map(Number);
+                    const startMins = sh * 60 + sm;
+                    const endMins = eh * 60 + em;
+                    return cur >= startMins && cur < endMins;
+                });
+                
+                if (activeSlot) {
+                    timeSlotInfo = `<div class="badge bg-info text-dark mt-1 border border-info bg-opacity-25"><i class="bi bi-clock-history"></i> รอบ: ${activeSlot.label || (activeSlot.start + '-' + activeSlot.end)}</div>`;
+                }
+            }
+        }
+        // ✅✅✅ จบส่วนแก้ไข ✅✅✅
+
+        // 4. Duration Badge
         let usageTimeBadge = '';
         if (pc.status === 'in_use' && pc.startTime) {
             const diffMs = Date.now() - pc.startTime;
@@ -197,6 +230,7 @@ function renderMonitor() {
             usageTimeBadge = `<div class="mt-1" style="height: 21px;"></div>`; 
         }
 
+        // 5. Software Badge
         let softwareHtml = '';
         if (Array.isArray(pc.installedSoftware) && pc.installedSoftware.length > 0) {
             softwareHtml = '<div class="mt-2 pt-2 border-top d-flex flex-wrap justify-content-center gap-1">';
@@ -215,7 +249,7 @@ function renderMonitor() {
         grid.innerHTML += `
             <div class="col-6 col-md-4 col-lg-3">
                 <div class="card h-100 shadow-sm ${cardBorder} position-relative pc-card-hover" 
-                     onclick="handlePcClick('${pc.id}')">
+                      onclick="handlePcClick('${pc.id}')">
                     <div class="card-body text-center p-3">
                         ${pc.installedSoftware && pc.installedSoftware.some(s => s.includes('GPU')) ? 
                             '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-gpu-card text-primary" title="High Performance"></i></div>' : ''}
@@ -249,9 +283,6 @@ function handlePcClick(pcId) {
         }
     } else if (pc.status === 'reserved') {
         if(confirm(`🟡 เครื่อง ${pc.name} ถูกจองโดย ${pc.currentUser}\n\nต้องการ "ยืนยันการเข้าใช้งาน" (Check-in) หรือไม่?`)) {
-            // จองแล้ว -> เปลี่ยนเป็น In Use + ตัดสิทธิ์ Booking
-            
-            // *ต้องหา Booking ID ก่อนตัดสิทธิ์*
             const bookings = DB.getBookings();
             const todayStr = new Date().toLocaleDateString('en-CA');
             const validBooking = bookings.find(b => 
@@ -319,7 +350,66 @@ function openCheckInModal(pc) {
     btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>ยืนยัน Check-in';
     
     verifiedUserData = null;
+
+    // ✅✅✅ [ADDED] ปุ่ม Admin Extend (ต่อเวลา) ✅✅✅
+    const modalFooter = document.querySelector('#checkInModal .modal-footer');
+    if (modalFooter && !document.getElementById('btnAdminExtend')) {
+        const adminBtn = document.createElement('button');
+        adminBtn.id = 'btnAdminExtend';
+        adminBtn.className = 'btn btn-warning me-auto fw-bold text-dark'; 
+        adminBtn.innerHTML = '<i class="bi bi-shield-lock-fill"></i> Admin ใช้ต่อ / Maintenance';
+        adminBtn.onclick = () => checkInAsAdmin(pc.id);
+        modalFooter.prepend(adminBtn);
+    }
+    // ✅✅✅ [END ADDED] ✅✅✅
+
     if(checkInModal) checkInModal.show();
+}
+
+// ✅✅✅ [NEW FUNCTION] Admin Check-in (นับสถิติใหม่) แบบ Dynamic Slots ✅✅✅
+function checkInAsAdmin(pcId) {
+    if(!confirm("ยืนยันการเปิดใช้งานในนาม Admin?\n(ระบบจะนับสถิติเป็นครั้งใหม่)")) return;
+
+    const adminName = "Admin Extension"; 
+    const adminRole = "Staff/Admin";     
+    const adminId = "ADMIN-EXT";         
+
+    // คำนวณ Slot ปัจจุบัน (เพื่อให้หน้าจอ Monitor ขึ้นรอบเวลาถูกต้อง)
+    const now = new Date();
+    const cur = now.getHours() * 60 + now.getMinutes();
+    let currentSlotId = null;
+
+    // ✅ ดึงข้อมูล Slot จาก Database
+    const allSlots = (DB.getAiTimeSlots && typeof DB.getAiTimeSlots === 'function') ? DB.getAiTimeSlots() : [];
+    const activeSlots = allSlots.filter(s => s.active);
+
+    if (activeSlots.length > 0) {
+        const activeSlot = activeSlots.find(s => {
+            const [sh, sm] = s.start.split(':').map(Number);
+            const [eh, em] = s.end.split(':').map(Number);
+            const startMins = sh * 60 + sm;
+            const endMins = eh * 60 + em;
+            return cur >= (startMins - 15) && cur < endMins;
+        });
+        if (activeSlot) currentSlotId = activeSlot.id || activeSlot.label;
+    }
+
+    DB.updatePCStatus(pcId, 'in_use', adminName);
+    
+    DB.saveLog({
+        action: 'START_SESSION',
+        userId: adminId, 
+        userName: adminName, 
+        userRole: adminRole, 
+        userFaculty: 'ศูนย์คอมพิวเตอร์',
+        pcId: pcId,
+        startTime: new Date().toISOString(),
+        details: 'Admin Extended Session (Manual)',
+        slotId: currentSlotId 
+    });
+
+    if(checkInModal) checkInModal.hide();
+    renderMonitor();
 }
 
 function switchTab(tabName) {
@@ -390,7 +480,6 @@ function confirmCheckIn() {
         faculty = extOrg || 'บุคคลภายนอก';
     }
 
-    // ✅ ตรวจสอบประเภทการใช้งาน (Booking Check)
     const usageType = document.querySelector('input[name="usageType"]:checked').value;
 
     if (usageType === 'booking') {
@@ -419,7 +508,6 @@ function confirmCheckIn() {
             return;
         }
 
-        // ✅ ตัดสิทธิ์การจอง (Update status -> completed)
         DB.updateBookingStatus(validBooking.id, 'completed');
     }
 
