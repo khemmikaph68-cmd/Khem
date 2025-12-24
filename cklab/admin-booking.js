@@ -349,7 +349,7 @@ function saveBooking() {
 }
 
 // ==========================================
-// 4. IMPORT CSV LOGIC
+// 4. IMPORT CSV LOGIC (Custom Format)
 // ==========================================
 
 function handleImport(input) {
@@ -358,22 +358,24 @@ function handleImport(input) {
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        const text = e.target.result;
-        processCSVData(text);
+        processCSVData(e.target.result);
     };
     reader.readAsText(file);
-    
-    // ล้างค่า input เพื่อให้เลือกไฟล์เดิมซ้ำได้ถ้าต้องการแก้ไขแล้ว import ใหม่
-    input.value = ''; 
+    input.value = ''; // Reset input
 }
 
 function processCSVData(csvText) {
-    // แยกบรรทัดและลบช่องว่าง
+    // 1. ดึงวันที่จากตัวกรองหน้าเว็บมาใช้
+    const selectedDate = document.getElementById('bookingDateFilter').value;
+    if (!selectedDate) {
+        alert("❌ กรุณาเลือก 'วันที่' ในหน้าเว็บก่อน Import ไฟล์");
+        return;
+    }
+
     const lines = csvText.split('\n').map(l => l.trim()).filter(l => l);
-    
-    // ข้าม Header (บรรทัดแรก)
+    // ลบ Header ออก 1 บรรทัด
     const dataLines = lines.slice(1);
-    
+
     if (dataLines.length === 0) {
         alert("❌ ไม่พบข้อมูลในไฟล์ CSV");
         return;
@@ -386,71 +388,93 @@ function processCSVData(csvText) {
     let errorLog = [];
 
     dataLines.forEach((line, index) => {
-        // รูปแบบ CSV ที่คาดหวัง: Date,StartTime,EndTime,PC_ID,UserName,UserType(Student/Staff/etc)
-        // ตัวอย่าง: 2023-12-25,09:00,10:30,1,สมชาย ใจดี,Student
+        // Format: Time, User, PC, Note, Status
+        // ตัวอย่าง: 09:00-10:30, สมชาย, PC-01, ChatGPT, approved
         
         const cols = line.split(',');
-        
         if (cols.length < 5) {
             failCount++;
-            errorLog.push(`แถว ${index + 2}: ข้อมูลไม่ครบถ้วน`);
+            errorLog.push(`แถว ${index + 2}: ข้อมูลไม่ครบ (ต้องมี Time, User, PC, Note, Status)`);
             return;
         }
 
-        const [date, start, end, pcIdRaw, userName, userType] = cols.map(c => c.trim());
-        const pcId = pcIdRaw.replace('PC-', ''); // เผื่อใส่ PC-01 มา
+        const [timeRange, userRaw, pcNameRaw, noteRaw, statusRaw] = cols.map(c => c.trim());
 
-        // 1. ตรวจสอบว่ามีเครื่องนี้จริงไหม
-        const pc = pcs.find(p => String(p.id) === String(pcId));
+        // A. จัดการเวลา (Time) -> แยก Start/End
+        const times = timeRange.split('-');
+        if (times.length !== 2) {
+            failCount++;
+            errorLog.push(`แถว ${index + 2}: รูปแบบเวลาผิด (ต้องเป็น HH:mm-HH:mm)`);
+            return;
+        }
+        const startTime = times[0].trim();
+        const endTime = times[1].trim();
+
+        // B. จัดการ PC -> หา ID จากชื่อเครื่อง
+        // รองรับทั้งเขียนว่า "PC-01" หรือเลข "1" เฉยๆ
+        const cleanPcName = pcNameRaw.toUpperCase().replace('PC-', ''); 
+        const pc = pcs.find(p => String(p.id) === cleanPcName || p.name === pcNameRaw);
+        
         if (!pc) {
             failCount++;
-            errorLog.push(`แถว ${index + 2}: ไม่พบเครื่อง ID ${pcId}`);
+            errorLog.push(`แถว ${index + 2}: ไม่พบเครื่องชื่อ "${pcNameRaw}"`);
             return;
         }
 
-        // 2. ตรวจสอบคิวชน (Logic เดียวกับ saveBooking)
+        // C. จัดการ Note / Software -> แปลงเป็น Array
+        // ถ้า Note เป็น "General" หรือว่าง ให้เป็น List ว่าง
+        let softwareList = [];
+        let type = 'General';
+        if (noteRaw && noteRaw.toLowerCase() !== 'general') {
+            softwareList = noteRaw.split(';').map(s => s.trim()); // รองรับหลายตัวคั่นด้วย ;
+            type = 'AI'; // สมมติว่าเป็น AI ถ้ามีการระบุ Note
+        }
+
+        // D. ตรวจสอบสถานะ (Status)
+        // ถ้าไม่ระบุ หรือระบุผิด ให้เป็น 'approved' ไว้ก่อน
+        const validStatuses = ['pending', 'approved', 'completed', 'no_show', 'rejected'];
+        let status = statusRaw.toLowerCase();
+        if (!validStatuses.includes(status)) status = 'approved';
+
+        // E. สร้าง Object การจอง
+        const newBooking = {
+            id: 'b_imp_' + Date.now() + Math.random().toString(36).substr(2, 5),
+            userId: userRaw,   // ใช้ชื่อเป็น ID ไปเลยสำหรับการ Import ง่ายๆ
+            userName: userRaw,
+            pcId: pc.id,
+            pcName: pc.name,
+            date: selectedDate, // ใช้วันที่จากหน้าเว็บ
+            startTime: startTime,
+            endTime: endTime,
+            type: type,
+            softwareList: softwareList, 
+            status: status
+        };
+
+        // F. ตรวจสอบเวลาชน (Conflict Check)
         const conflict = bookings.find(b => {
-            return String(b.pcId) === String(pcId) && 
-                   b.date === date && 
+            return String(b.pcId) === String(pc.id) && 
+                   b.date === selectedDate && 
                    ['approved', 'in_use'].includes(b.status) &&
-                   (start < b.endTime && end > b.startTime);
+                   (startTime < b.endTime && endTime > b.startTime);
         });
 
         if (conflict) {
             failCount++;
-            errorLog.push(`แถว ${index + 2}: เวลาชนกับคุณ ${conflict.userName}`);
+            errorLog.push(`แถว ${index + 2}: เวลาชนกับ ${conflict.userName} (${conflict.startTime}-${conflict.endTime})`);
             return;
         }
-
-        // 3. สร้างข้อมูลการจอง
-        const newBooking = {
-            id: 'b_imp_' + Date.now() + Math.random().toString(36).substr(2, 5),
-            userId: userType || 'Imported',   
-            userName: userName,
-            pcId: pcId,
-            pcName: pc.name,
-            date: date,
-            startTime: start,
-            endTime: end,
-            type: 'General', // หรือกำหนดตาม CSV ถ้ามี
-            softwareList: [], 
-            status: 'approved' // Import เข้ามาให้อนุมัติเลย
-        };
 
         bookings.push(newBooking);
         successCount++;
     });
 
-    // บันทึกและรีเฟรชตาราง
+    // บันทึกและรีเฟรช
     if (successCount > 0) {
-        DB.saveBookings(bookings);
+        DB.saveBookings(bookings); //
         renderBookings(); //
+        alert(`✅ นำเข้าข้อมูลวันที่ ${selectedDate} เรียบร้อย!\nสำเร็จ: ${successCount}\nล้มเหลว: ${failCount}`);
+    } else {
+        alert(`❌ นำเข้าล้มเหลวทั้งหมด\n\n${errorLog.join('\n')}`);
     }
-
-    // สรุปผล
-    let msg = `✅ นำเข้าสำเร็จ: ${successCount} รายการ\n❌ ล้มเหลว: ${failCount} รายการ`;
-    if (errorLog.length > 0) {
-        msg += '\n\nสาเหตุที่ล้มเหลว:\n' + errorLog.join('\n');
-    }
-    alert(msg);
 }
