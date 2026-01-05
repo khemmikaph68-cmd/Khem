@@ -1,0 +1,76 @@
+@startuml
+title Activity Diagram with Swimlanes: กระบวนการใช้งานระบบ CKLab
+skinparam shadow false
+skinparam defaultFontName "Arial"
+skinparam monochrome true
+
+' เริ่มต้น Swimlanes
+|ผู้ใช้งาน (Student/Staff/Guest)|
+start
+:เข้าสู่ระบบ / ยืนยันตัวตน;
+if (ประเภทผู้ใช้?) then (Guest)
+    :กรอกข้อมูลบัตรประชาชน;
+else (Student/Staff)
+    :กรอกรหัส UBU Login;
+endif
+
+|ระบบ CKLab (Web/Kiosk)|
+:ตรวจสอบสิทธิ์;
+
+|Admin / UBU API|
+:เรียก UBU API ตรวจสอบสิทธิ์;
+:ส่งผลการตรวจสอบสิทธิ์;
+
+|ระบบ CKLab (Web/Kiosk)|
+if (สิทธิ์ผ่าน?) then (No)
+    :แจ้งเตือนสิทธิ์ไม่ผ่าน;
+    stop
+else (Yes)
+    repeat
+        :แสดงหน้าเลือกเครื่อง (Select PC);
+        |ผู้ใช้งาน (Student/Staff/Guest)|
+        :เลือกเครื่องที่ต้องการ;
+        |ระบบ CKLab (Web/Kiosk)|
+        :ตรวจสอบสถานะเครื่อง;
+    repeat while (เครื่องว่าง?) is (No)
+    -> Yes;
+    
+    :บันทึกการจอง / ล็อคเครื่อง;
+    :เริ่มนับเวลา (Start Timer);
+    :แสดง Dashboard สถานะ "ใช้งานอยู่";
+    
+    |Admin / UBU API|
+    :Admin เห็นสถานะ Real-time;
+    
+    |ผู้ใช้งาน (Student/Staff/Guest)|
+    :ใช้งานเครื่อง (Active Usage);
+    
+    |ระบบ CKLab (Web/Kiosk)|
+    repeat
+        if (หมดเวลา / ต้องการเลิก?) then (Yes)
+            break
+        elseif (กดปุ่ม Extend Time?) then (Yes)
+            :ตรวจสอบคิวจองถัดไป;
+            if (มีคิวจองต่อ?) then (Yes)
+                :แจ้งเตือน "ไม่สามารถต่อเวลาได้";
+            else (No)
+                :เพิ่มเวลาใช้งาน;
+                :อัปเดต Timer;
+            endif
+        endif
+        :นับเวลาต่อ (Active);
+    repeat while (ยังไม่หมดเวลา)
+    
+    :หยุดเวลา (Stop Timer);
+    :แสดงแบบประเมินความพึงพอใจ;
+    
+    |ผู้ใช้งาน (Student/Staff/Guest)|
+    :ให้คะแนนและข้อเสนอแนะ;
+    
+    |ระบบ CKLab (Web/Kiosk)|
+    :บันทึก Log การใช้งาน;
+    :เปลี่ยนสถานะเครื่องเป็น "ว่าง";
+    
+    stop
+endif
+@enduml
