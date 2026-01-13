@@ -1,0 +1,163 @@
+@startuml
+top to bottom direction
+skinparam actorStyle awesome
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam defaultFontName "Tahoma"
+skinparam linetype polyline
+
+actor "ผู้ดูแลระบบ (Admin)" as admin
+entity "ระบบฐานข้อมูล" as db
+
+rectangle "CKLab Admin Portal (ระบบจัดการห้องแล็บครบวงจร)" {
+
+    ' --- 1. Login ---
+    package "UC-06: การยืนยันตัวตน (Authentication)" {
+        usecase "<b>UC-06</b> Admin Login\n(เข้าสู่ระบบ)" as login
+        usecase "Verify Credentials\n(ตรวจสอบรหัส)" as verify
+        usecase "Login Success\n(เข้าสู่หน้าหลัก)" as success
+        usecase "Show Error\n(แสดงข้อผิดพลาด)" as error
+    }
+
+    ' --- 2. Monitor ---
+    package "UC-07 & 08: ตรวจสอบเรียลไทม์ (Monitor)" {
+        usecase "<b>UC-07</b> View Lab Monitor\n(ดูผังที่นั่ง)" as monitor
+        usecase "Admin Check-in\n(เช็คอินแทน)" as adminCheckIn
+        usecase "Set Maintenance\n(แจ้งซ่อม)" as setMaint
+        usecase "<b>UC-08</b> Force Logout\n(สั่งตัดการใช้งาน)" as forceOut
+        usecase "Clear Status & Save Log" as uc8_process
+    }
+
+    ' --- 3. Booking ---
+    package "UC-10: การจัดการการจอง (Booking)" {
+        usecase "<b>UC-10</b> Manage Booking\n(เมนูจัดการจอง)" as manageBook
+        usecase "View Booking Schedule\n(ดูตาราง)" as viewSch
+        usecase "Import CSV\n(นำเข้าข้อมูล)" as importCSV
+        usecase "Add New Booking\n(เพิ่มการจอง)" as addBook
+        usecase "Check Availability\n(ตรวจสอบว่าง)" as checkAvail
+        usecase "Cancel Booking\n(ยกเลิกการจอง)" as cancelBook
+    }
+
+    ' --- 4. Reports ---
+    package "UC-12: รายงานสถิติ (Reports)" {
+        usecase "2. เข้าหน้า Reports" as GoReport
+        usecase "3. ดูรายงานสรุป\n(Dashboard)" as ViewReport
+        usecase "4. นำเข้า/ส่งออก Log" as Import
+        usecase "5. กรองข้อมูล (Filter)" as Filter
+        usecase "6. ดาวน์โหลด (Export)" as Export
+        usecase "7. พิมพ์ (Print)" as Print
+    }
+
+    ' --- 5. Config Assets ---
+    package "UC-09 & 11: จัดการข้อมูลหลัก (Assets)" {
+        ' Software
+        usecase "<b>UC-11</b> View Software List" as viewSoftList
+        usecase "Search Software" as searchSoft
+        usecase "Add/Edit Software" as manageSoft
+        usecase "Save Software Data" as saveSoft
+        
+        ' PC
+        usecase "<b>UC-09</b> View PC List" as viewPC
+        usecase "Add/Edit PC" as managePC
+        usecase "Select Software" as linkSoft
+    }
+
+    ' --- 6. System Config ---
+    package "UC-13: ตั้งค่าระบบ (System Config)" {
+        usecase "<b>UC-13</b> Enter System Config" as enterConfig
+        usecase "Edit General Settings\n(ค่าทั่วไป/เปิด-ปิดห้อง)" as editGeneral
+        usecase "Manage Admin Accounts" as viewAdmins
+        usecase "Add New Admin" as addAdmin
+        usecase "Save Configuration" as saveConfig
+    }
+
+    ' --- 7. Logout ---
+    package "UC-14: ออกจากระบบ (Logout)" {
+        usecase "<b>UC-14</b> Click Logout" as clickLogout
+        usecase "Confirm Logout" as confirmLogout
+        usecase "Clear Session" as clearSession
+        usecase "Redirect to Login" as redirectLogin
+    }
+}
+
+' ================= Relationships =================
+
+' --- Login Flow ---
+admin --> login
+login ..> verify : <<include>>
+verify ..> success : <<include>> \n(รหัสถูก)
+verify <.. error : <<extend>> \n(รหัสผิด)
+
+' --- Navigation Flow (หลัง Login สำเร็จ ไปไหนได้บ้าง) ---
+success ..> monitor : <<flow>>
+success ..> manageBook : <<flow>>
+success ..> GoReport : <<flow>>
+success ..> viewSoftList : <<flow>>
+success ..> viewPC : <<flow>>
+success ..> enterConfig : <<flow>>
+
+' --- Operations: Monitor ---
+admin --> monitor
+monitor <.. adminCheckIn : <<extend>>
+monitor <.. setMaint : <<extend>>
+monitor <.. forceOut : <<extend>>
+forceOut ..> uc8_process : <<include>>
+
+' --- Operations: Booking ---
+admin --> manageBook
+manageBook ..> viewSch : <<include>>
+manageBook ..> addBook : <<include>>
+manageBook ..> importCSV : <<include>>
+manageBook ..> cancelBook : <<include>>
+addBook ..> checkAvail : <<include>>
+
+' --- Operations: Reports ---
+admin --> GoReport
+admin --> ViewReport
+admin --> Import
+Filter ..> ViewReport : <<extend>>
+Export ..> ViewReport : <<extend>>
+Print ..> ViewReport : <<extend>>
+
+' --- Operations: Config Assets ---
+' Software
+admin --> viewSoftList
+viewSoftList <.. searchSoft : <<extend>>
+viewSoftList <.. manageSoft : <<extend>>
+manageSoft ..> saveSoft : <<include>>
+
+' PC
+admin --> viewPC
+viewPC <.. managePC : <<extend>>
+managePC ..> linkSoft : <<include>>
+linkSoft .> viewSoftList : <<use data>>
+
+' --- Operations: System Config ---
+admin --> enterConfig
+enterConfig <.. editGeneral : <<extend>>
+enterConfig <.. viewAdmins : <<extend>>
+viewAdmins <.. addAdmin : <<extend>>
+editGeneral ..> saveConfig : <<include>>
+addAdmin ..> saveConfig : <<include>>
+
+' --- Operations: Logout ---
+admin --> clickLogout
+clickLogout ..> confirmLogout : <<include>>
+confirmLogout ..> clearSession : <<include>>
+clearSession ..> redirectLogin : <<include>>
+redirectLogin .> login : <<flow>> \n(กลับหน้าแรก)
+
+' ================= Database Connections =================
+' รวมเส้น Database ไว้ด้านล่างเพื่อให้ดูสบายตา
+verify -- db
+monitor -- db
+forceOut -- db
+saveSoft -- db
+managePC -- db
+addBook -- db
+ViewReport -- db
+Import -- db
+saveConfig -- db
+clearSession -- db
+
+@enduml

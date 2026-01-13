@@ -1,0 +1,123 @@
+@startuml
+title User Use Case Diagram: CKLAB
+skinparam monochrome true
+skinparam shadow false
+skinparam defaultFontName "Arial"
+skinparam actorStyle awesome
+
+' --- Actors ---
+actor "User (ผู้ใช้งาน)" as User
+actor "นักศึกษา / บุคลากร\n(Student/Staff)" as Internal
+actor "บุคคลทั่วไป\n(Guest)" as External
+actor "UBU API / Database" as API
+
+' --- Inheritance (การสืบทอด) ---
+User <|-- Internal
+User <|-- External
+
+' --- System Boundary ---
+rectangle "CKLab Kiosk System" {
+
+    ' Group 1: Check-in (UC-01 & UC-02)
+    package "1. Check-in Module" {
+        usecase "<b>UC-01</b> เช็คอินเข้าใช้งานสำหรับสมาชิก\n(Member Check-in)" as UC01
+        usecase "<b>UC-02</b> เช็คอินเข้าใช้งานสำหรับบุคคลภายนอก\n(External Check-in)" as UC02
+        
+        ' Steps
+        usecase "เลือกประเภทผู้ใช้งาน (Switch Tab)" as SwitchTab
+        usecase "ระบุรหัส UBU WiFi+ / ตรวจสอบรายชื่อ (Verify)" as Verify
+        usecase "ยืนยันการเข้าใช้งาน (Confirm)" as Confirm
+    }
+
+    ' Group 2: Active Session (UC-04)
+    package "2. Active Session Module" {
+        usecase "<b>UC-04</b> ใช้งานและดูเวลา\n(Active Session)" as UC04
+        usecase "ดูเวลาที่ใช้ไป / ซิงค์สถานะ (View Timer)" as ViewTimer
+    }
+
+    ' Group 3: Check-out (UC-05)
+    package "3. Check-out Module" {
+        usecase "<b>UC-05</b> เช็คเอาท์ / ลงชื่อออก\n(Check-out)" as UC05
+        
+        ' Steps for UC-05
+        usecase "กดปุ่ม Logout / เลิกใช้งาน" as ClickLogout
+        usecase "คืนสถานะเครื่องให้ว่าง (Free Station)" as FreeStatus
+        usecase "เปลี่ยนไปหน้าประเมิน (Redirect)" as GoToFeedback
+    }
+
+    ' Group 4: Feedback (UC-03)
+    package "4. Feedback Module" {
+        usecase "<b>UC-03</b> ประเมินความพึงพอใจ\n(Feedback)" as UC03
+        
+        ' Steps for UC-03
+        usecase "ประเมินความพึงพอใจและเขียนข้อเสนอแนะ (Rate&Comment)" as Rate
+        usecase "กดบันทึก (Save)" as Save
+        usecase "กลับไปหน้า Check in (Back to Home)" as BackHome
+    }
+
+}
+
+' --- 1. Check-in Flow (Specific Actors) ---
+Internal --> UC01
+External --> UC02
+
+' เชื่อม Switch Tab เป็นขั้นตอนแรก
+UC01 ..> SwitchTab : <<include>>
+UC02 ..> SwitchTab : <<include>>
+
+' ลำดับถัดไป (Flow)
+SwitchTab ..> Verify : <<include>> \n(For Member)
+SwitchTab ..> Confirm : <<include>> \n(For Guest)
+
+' เชื่อม Verify ไป Confirm
+Verify ..> Confirm : <<include>>
+
+' --- Transition: Confirm -> Active Session ---
+Confirm ..> UC04 : <<invoke>> \n(Start)
+
+' --- 2. Active Session Flow (Generic User) ---
+User --> UC04
+UC04 ..> ViewTimer : <<include>>
+
+' --- Transition: Active Session -> Check-out ---
+UC04 ..> UC05 : <<invoke>> \n(User Action)
+
+' --- 3. Check-out Flow (Generic User) ---
+User --> UC05
+UC05 ..> ClickLogout : <<include>>
+ClickLogout ..> FreeStatus : <<include>>
+FreeStatus --> API : Update DB (Available)
+FreeStatus ..> GoToFeedback : <<include>>
+
+' --- Transition: Check-out -> Feedback ---
+GoToFeedback ..> UC03 : <<invoke>>
+
+' --- 4. Feedback Flow (Generic User) ---
+User --> UC03
+UC03 ..> Rate : <<include>>
+Rate ..> Save : <<include>>
+Save --> API : Save Log
+Save ..> BackHome : <<include>>
+
+' --- Notes ---
+note right of UC01
+  <b>ผู้รับผิดชอบ:</b> ปภังกร
+end note
+
+note right of UC04
+  <b>ผู้รับผิดชอบ:</b> ปภังกร
+end note
+
+note right of UC05
+  <b>ผู้รับผิดชอบ:</b> นักมวย
+  คืนสถานะเครื่อง
+  และเปลี่ยนหน้า
+end note
+
+note right of UC03
+  <b>ผู้รับผิดชอบ:</b> นักมวย
+  บันทึกคะแนน
+  และกลับหน้าแรก
+end note
+
+@enduml
