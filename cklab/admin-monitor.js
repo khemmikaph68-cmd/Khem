@@ -1,4 +1,4 @@
-/* admin-monitor.js (Final: Date Picker Support + AI Timeline Display) */
+/* admin-monitor.js (Final: Include Walk-in/Admin History in Timeline) */
 
 let checkInModal, manageActiveModal;
 let currentTab = 'internal';
@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateInput = document.getElementById('monitorDate');
     if (dateInput) {
         dateInput.valueAsDate = new Date();
-        // เมื่อเปลี่ยนวันที่ ให้รีเฟรชหน้าจอทันที
         dateInput.addEventListener('change', renderMonitor);
     }
 
@@ -34,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. Real-time Sync
     window.addEventListener('storage', (e) => {
-        if (e.key === 'ck_pcs' || e.key === 'ck_bookings') {
+        if (e.key === 'ck_pcs' || e.key === 'ck_bookings' || e.key === 'ck_logs') {
             checkAndSwitchBookingQueue();
             renderMonitor();
         }
@@ -104,8 +103,9 @@ function renderMonitor() {
     updateMonitorStats(allPcs);
 
     const bookings = DB.getBookings();
+    const logs = DB.getLogs(); // ✅ ดึง Logs มาใช้ด้วย
     
-    // ✅ ดึงวันที่จาก Date Picker (ถ้าไม่มีให้ใช้วันปัจจุบัน)
+    // ดึงวันที่จาก Date Picker
     const dateInput = document.getElementById('monitorDate');
     const selectedDateStr = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
     
@@ -143,7 +143,7 @@ function renderMonitor() {
             `<div class="mt-1 fw-bold text-dark text-truncate" title="${pc.currentUser}"><i class="bi bi-person-fill"></i> ${pc.currentUser}</div>` : 
             `<div class="mt-1 text-muted">-</div>`;
 
-        // -- Software Badges (บนการ์ด) --
+        // -- Software Badges --
         let softwareHtml = '';
         if (Array.isArray(pc.installedSoftware) && pc.installedSoftware.length > 0) {
             softwareHtml = '<div class="mt-2 d-flex flex-wrap justify-content-center gap-1">';
@@ -160,20 +160,76 @@ function renderMonitor() {
             softwareHtml = '<div class="mt-2" style="height: 22px;"></div>';
         }
 
-        // --- Booking Queue / Timeline (อ้างอิงตามวันที่เลือก) ---
-        let myBookings = bookings.filter(b => 
+        // --- ✅ STEP 1: ดึง Bookings ปกติ ---
+        let timelineItems = bookings.filter(b => 
             String(b.pcId) === String(pc.id) && 
-            b.date === selectedDateStr && // ✅ กรองตามวันที่เลือก
+            b.date === selectedDateStr && 
             ['approved', 'pending', 'completed', 'no_show'].includes(b.status)
-        );
-        myBookings.sort((a, b) => a.startTime.localeCompare(b.startTime));
+        ).map(b => ({
+            ...b,
+            source: 'booking' // Mark source
+        }));
 
+        // --- ✅ STEP 2: ดึง Log (Admin/Walk-in) มาผสม ---
+        const dailyLogs = logs.filter(l => 
+            String(l.pcId) === String(pc.id) && 
+            l.action === 'START_SESSION' && 
+            l.startTime.startsWith(selectedDateStr)
+        );
+
+        dailyLogs.forEach(log => {
+            const logDate = new Date(log.startTime);
+            const logH = logDate.getHours();
+            const logM = logDate.getMinutes();
+            const logTimeVal = logH * 60 + logM;
+            const logStartStr = `${String(logH).padStart(2,'0')}:${String(logM).padStart(2,'0')}`;
+
+            // เช็คว่า Log นี้ซ้ำกับ Booking ไหม (ถ้าเวลาใกล้กันมาก และชื่อเดียวกัน ให้ถือว่าเป็นอันเดียวกัน)
+            const isDuplicate = timelineItems.some(b => {
+                const [bh, bm] = b.startTime.split(':').map(Number);
+                const bTimeVal = bh * 60 + bm;
+                return Math.abs(logTimeVal - bTimeVal) < 20 && b.userName === log.userName;
+            });
+
+            if (!isDuplicate) {
+                // ถ้าไม่ซ้ำ ให้หาเวลาจบ (End Time)
+                let endStr = "??:??";
+                const endLog = logs.find(el => 
+                    el.action === 'END_SESSION' && 
+                    el.pcId === log.pcId && 
+                    el.userName === log.userName && 
+                    new Date(el.timestamp) > logDate
+                );
+
+                let status = 'completed';
+                if (endLog) {
+                    const ed = new Date(endLog.timestamp);
+                    endStr = `${String(ed.getHours()).padStart(2,'0')}:${String(ed.getMinutes()).padStart(2,'0')}`;
+                } else if (pc.status === 'in_use' && pc.currentUser === log.userName) {
+                    endStr = "Now";
+                    status = 'active'; // กำลังใช้งาน
+                }
+
+                // สร้าง Pseudo-Booking object เพื่อนำไปโชว์
+                timelineItems.push({
+                    id: 'log_' + log.timestamp,
+                    startTime: logStartStr,
+                    endTime: endStr,
+                    userName: log.userName,
+                    status: status,
+                    type: 'Walk-in', // หรือ 'Admin'
+                    source: 'log'
+                });
+            }
+        });
+
+        // --- STEP 3: เรียงลำดับตามเวลา ---
+        timelineItems.sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+        // --- Render Timeline HTML ---
         let queueHtml = '';
-        
-        if (myBookings.length > 0) {
+        if (timelineItems.length > 0) {
             queueHtml = `<div class="mt-3 pt-2 border-top text-start">`;
-            
-            // ปรับหัวข้อ Timeline ตามวันที่เลือก
             const isTodayView = (selectedDateStr === new Date().toISOString().split('T')[0]);
             const headerText = isTodayView ? 'TIMELINE (วันนี้)' : `TIMELINE (${formatDateShort(selectedDateStr)})`;
 
@@ -185,13 +241,17 @@ function renderMonitor() {
             
             queueHtml += `<div class="d-flex flex-column gap-1">`;
 
-            myBookings.forEach(b => {
+            timelineItems.forEach(b => {
                 const [sh, sm] = b.startTime.split(':').map(Number);
-                const [eh, em] = b.endTime.split(':').map(Number);
-                const startMins = sh * 60 + sm;
-                const endMins = eh * 60 + em;
+                let startMins = sh * 60 + sm;
+                let endMins = 9999; // Default if 'Now' or '??'
+
+                if (b.endTime !== 'Now' && b.endTime !== '??:??') {
+                    const [eh, em] = b.endTime.split(':').map(Number);
+                    endMins = eh * 60 + em;
+                }
                 
-                const isNow = isTodayView && (curTimeVal >= startMins && curTimeVal < endMins);
+                const isNow = isTodayView && (curTimeVal >= startMins && curTimeVal < endMins) && b.status !== 'completed';
                 const isPast = isTodayView && ((curTimeVal >= endMins) || b.status === 'completed');
                 const isNoShow = b.status === 'no_show';
                 
@@ -200,12 +260,13 @@ function renderMonitor() {
                 let statusBadge = "";
                 let rowStyle = ""; 
 
-                // ✅ เพิ่ม Icon สำหรับ AI / Software Booking
                 let typeIcon = "";
                 if (b.softwareList && b.softwareList.length > 0) {
-                    typeIcon = `<i class="bi bi-robot text-primary ms-1" style="font-size: 0.8em;" title="Software: ${b.softwareList.join(', ')}"></i>`;
+                    typeIcon = `<i class="bi bi-robot text-primary ms-1" style="font-size: 0.8em;" title="Software"></i>`;
                 } else if (b.type === 'AI') {
                     typeIcon = `<i class="bi bi-cpu text-primary ms-1" style="font-size: 0.8em;" title="AI Workstation"></i>`;
+                } else if (b.source === 'log') {
+                    typeIcon = `<i class="bi bi-lightning-charge-fill text-warning ms-1" style="font-size: 0.8em;" title="Walk-in/Admin"></i>`;
                 }
 
                 if (isNoShow) {
@@ -215,7 +276,7 @@ function renderMonitor() {
                 } else if (isPast) {
                     textStyle = "font-size: 0.75rem; color: #adb5bd;";
                     statusBadge = '<i class="bi bi-check2 text-success opacity-25 ms-1" style="font-size: 0.9em;"></i>';
-                } else if (isNow) {
+                } else if (isNow || b.status === 'active') {
                     rowClass += " bg-white shadow-sm border-start border-3 border-primary";
                     textStyle = "font-size: 0.75rem; color: #0d6efd; font-weight: bold;";
                     statusBadge = '<div class="spinner-grow text-primary" style="width: 6px; height: 6px;" role="status"></div>';
@@ -243,10 +304,24 @@ function renderMonitor() {
             </div>`;
         }
 
-        // --- Time Badge (Unlimited) ---
+        // --- Usage Time Badge ---
         let usageTimeBadge = '';
         if (pc.status === 'in_use') {
-            usageTimeBadge = `<div class="badge bg-primary mb-1 shadow-sm">Unlimited</div>`;
+            let durationText = 'เพิ่งเริ่ม';
+            if (pc.startTime) {
+                const start = new Date(pc.startTime);
+                const diffMs = now - start;
+                const diffMins = Math.floor(diffMs / 60000);
+                
+                if (diffMins >= 60) {
+                    const hrs = Math.floor(diffMins / 60);
+                    const mins = diffMins % 60;
+                    durationText = `${hrs} ชม. ${mins} น.`;
+                } else {
+                    durationText = `${diffMins} นาที`;
+                }
+            }
+            usageTimeBadge = `<div class="badge bg-info text-dark mb-1 shadow-sm"><i class="bi bi-stopwatch"></i> ${durationText}</div>`;
         } else {
             usageTimeBadge = `<div class="mb-1" style="height: 21px;"></div>`; 
         }
@@ -300,8 +375,7 @@ function handlePcClick(pcId) {
                 DB.updateBookingStatus(validBooking.id, 'completed');
             }
 
-            // Unlimited Check-in for Reservation
-            DB.updatePCStatus(pc.id, 'in_use', pc.currentUser, { forceEndTime: null });
+            DB.updatePCStatus(pc.id, 'in_use', pc.currentUser, { forceEndTime: null, startTime: new Date().toISOString() });
             
             DB.saveLog({
                 action: 'START_SESSION',
@@ -342,7 +416,6 @@ function performForceCheckout(pcId) {
     const pc = pcs.find(p => String(p.id) === String(pcId));
     const currentUser = pc ? pc.currentUser : 'Unknown';
 
-    // 1. ค้นหา Log การเริ่มใช้งานล่าสุด
     const logs = DB.getLogs();
     let startLog = null;
     
@@ -355,7 +428,6 @@ function performForceCheckout(pcId) {
         }
     }
 
-    // 2. ดึงข้อมูล User
     const userId = startLog ? startLog.userId : 'Unknown';
     const userName = startLog ? startLog.userName : currentUser;
     const userRole = startLog ? startLog.userRole : 'guest';
@@ -363,16 +435,13 @@ function performForceCheckout(pcId) {
     const userLevel = startLog ? startLog.userLevel : '-'; 
     const userYear = startLog ? startLog.userYear : '-';   
 
-    // 3. ดึง Software
     const installedApps = pc && pc.installedSoftware ? pc.installedSoftware : [];
     const isAIUsed = installedApps.some(s => s.toLowerCase().includes('ai') || s.toLowerCase().includes('gpt'));
 
-    // 4. คำนวณเวลา
     const startTime = pc && pc.startTime ? new Date(pc.startTime) : new Date();
     const endTime = new Date();
     const durationMinutes = Math.floor((endTime - startTime) / 60000);
 
-    // 5. บันทึก Log
     DB.saveLog({
         action: 'END_SESSION',   
         userId: userId,          
@@ -397,12 +466,12 @@ function performForceCheckout(pcId) {
 }
 
 // ==========================================
-// 📝 Auto Booking Switcher (Real-time Clock Only)
+// 📝 Auto Booking Switcher
 // ==========================================
 function checkAndSwitchBookingQueue() {
     const pcs = DB.getPCs();
     const bookings = DB.getBookings();
-    const todayStr = new Date().toLocaleDateString('en-CA'); // Always check TODAY
+    const todayStr = new Date().toLocaleDateString('en-CA'); 
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     let hasChanges = false;
@@ -482,7 +551,7 @@ function checkInAsAdmin(pcId) {
     const adminRole = "Staff/Admin"; 
     const adminId = "ADMIN-EXT";         
     
-    DB.updatePCStatus(pcId, 'in_use', adminName, { forceEndTime: null });
+    DB.updatePCStatus(pcId, 'in_use', adminName, { forceEndTime: null, startTime: new Date().toISOString() });
     
     DB.saveLog({ 
         action: 'START_SESSION', 
@@ -516,7 +585,7 @@ function switchTab(tabName) {
     } else {
         btnExt.classList.add('active', 'bg-primary', 'text-white'); btnExt.classList.remove('border');
         btnInt.classList.remove('active', 'bg-primary', 'text-white'); btnInt.classList.add('border');
-        formExt.classList.remove('d-none'); formInt.classList.add('d-none');
+        formExt.classList.remove('d-none'); formExt.classList.add('d-none');
         btnConfirm.disabled = false;
         btnConfirm.className = 'btn btn-success w-100 py-3 fw-bold shadow-sm';
     }
@@ -572,7 +641,7 @@ function confirmCheckIn() {
         finalYear = '-';
     }
 
-    DB.updatePCStatus(pcId, 'in_use', finalName, { forceEndTime: null });
+    DB.updatePCStatus(pcId, 'in_use', finalName, { forceEndTime: null, startTime: new Date().toISOString() });
     
     DB.saveLog({ 
         action: 'START_SESSION', 
