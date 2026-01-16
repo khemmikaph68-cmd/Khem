@@ -1,4 +1,4 @@
-/* admin-booking.js (Final: Dynamic Availability based on Date/Time Slot) */
+/* admin-booking.js (Final: Validation on Save Only) */
 
 let bookingModal;
 
@@ -126,15 +126,47 @@ function filterPCList() {
         pcSelect.innerHTML = `<option value="" disabled>❌ ไม่พบเครื่องที่มีโปรแกรมนี้</option>`;
     }
     
-    // เคลียร์ Hint text ด้านล่าง (ตามที่ขอ)
-    const hint = document.getElementById('pcSoftwareHint');
-    if(hint) hint.innerText = "";
+    // เรียก updateSoftwareList เพื่อเคลียร์ UI ส่วน AI เมื่อมีการเปลี่ยน Filter
+    updateSoftwareList();
 }
 
 function updateSoftwareList() {
-    // ฟังก์ชันนี้ไม่ได้ใช้แสดงข้อความแล้ว แต่คงไว้เผื่อ Logic อื่นๆ
+    const pcId = document.getElementById('bkPcSelect').value;
+    const container = document.getElementById('aiCheckboxList');
+    
+    // เคลียร์ Hint text ด้านล่าง
     const hint = document.getElementById('pcSoftwareHint');
     if(hint) hint.innerText = "";
+
+    if (!container) return;
+
+    // เคลียร์ Checkbox เก่า
+    container.innerHTML = '';
+
+    // ถ้ายังไม่เลือกเครื่อง
+    if (!pcId) {
+        container.innerHTML = '<span class="text-muted small fst-italic">กรุณาเลือกเครื่องก่อน...</span>';
+        return;
+    }
+
+    // หาข้อมูลเครื่อง PC ที่เลือก
+    const pcs = DB.getPCs();
+    const pc = pcs.find(p => String(p.id) === String(pcId));
+
+    // สร้าง Checkbox ตามรายการ Software ที่ติดตั้งในเครื่องนั้น
+    if (pc && pc.installedSoftware && pc.installedSoftware.length > 0) {
+        pc.installedSoftware.forEach((sw, index) => {
+            const div = document.createElement('div');
+            div.className = 'form-check form-check-inline mb-1';
+            div.innerHTML = `
+                <input class="form-check-input" type="checkbox" id="sw_chk_${index}" value="${sw}">
+                <label class="form-check-label small" for="sw_chk_${index}">${sw}</label>
+            `;
+            container.appendChild(div);
+        });
+    } else {
+        container.innerHTML = '<span class="text-muted small">- ไม่พบรายการ Software ในเครื่องนี้ -</span>';
+    }
 }
 
 // ==========================================
@@ -192,6 +224,8 @@ function renderBookings() {
             softwareDisplay = b.softwareList.map(sw => `<span class="badge bg-info text-dark border border-info bg-opacity-25 me-1">${sw}</span>`).join('');
         } else if (b.type === 'General') {
             softwareDisplay = '<span class="badge bg-light text-secondary border">ทั่วไป</span>';
+        } else if (b.type === 'AI') {
+            softwareDisplay = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary"><i class="bi bi-robot me-1"></i>AI Workstation</span>';
         }
 
         const tr = document.createElement('tr');
@@ -241,21 +275,27 @@ function updateStatus(id, newStatus) {
 }
 
 // ==========================================
-// 2. MODAL & SAVE LOGIC
+// 2. MODAL & SAVE LOGIC (แก้ไขตาม request)
 // ==========================================
 
 function openBookingModal() {
     const today = new Date().toISOString().split('T')[0];
     
-    // Reset Form
-    if(document.getElementById('bkDate')) document.getElementById('bkDate').value = today;
+    const dateInput = document.getElementById('bkDate');
+    if(dateInput) {
+        dateInput.value = today;
+        
+        // ✅ ปลดล็อค: ลบการจำกัด min/max ออก เพื่อให้เลือกวันที่ในปฏิทินได้อิสระ
+        dateInput.removeAttribute('min');
+        dateInput.removeAttribute('max');
+    }
+
     if(document.getElementById('bkPcSelect')) document.getElementById('bkPcSelect').value = '';
     if(document.getElementById('bkTimeSlot')) document.getElementById('bkTimeSlot').value = '09:00-10:30';
     if(document.getElementById('bkUser')) document.getElementById('bkUser').value = '';
     if(document.getElementById('bkTypeSelect')) document.getElementById('bkTypeSelect').value = 'General';
     if(document.getElementById('bkSoftwareFilter')) document.getElementById('bkSoftwareFilter').value = '';
     
-    // Reset UI
     filterPCList(); 
     toggleSoftwareList(); 
     
@@ -277,14 +317,41 @@ function saveBooking() {
         return;
     }
 
+    // --- ✅ ด่านตรวจเช็ควัน (Validation on Save) ---
+    // สร้างวันที่แบบเที่ยงคืนเพื่อเปรียบเทียบ
+    const parts = date.split('-');
+    const selDate = new Date(parts[0], parts[1] - 1, parts[2]); // วันที่เลือก
+    const today = new Date(); // วันนี้
+    today.setHours(0,0,0,0); // รีเซ็ตเวลาเป็น 00:00
+
+    // คำนวณความต่างวัน
+    const diffTime = selDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // เช็คว่าเกิน 1 วันหรือไม่ (เช่น วันนี้จองพรุ่งนี้ได้ แต่จองมะรืนไม่ได้)
+    if (diffDays > 1) {
+        alert("⚠️ ไม่สามารถจองล่วงหน้าเกิน 1 วันได้\n(ระบบอนุญาตให้จองได้เฉพาะวันนี้และพรุ่งนี้เท่านั้น)");
+        return;
+    }
+    
+    // (Optional) ถ้าไม่ต้องการให้จองย้อนหลัง ก็เปิดบรรทัดนี้ได้
+    /*
+    if (diffDays < 0) {
+        alert("⚠️ ไม่สามารถเลือกวันที่ย้อนหลังได้");
+        return;
+    }
+    */
+    // --------------------------------------------------
+
     const [start, end] = timeSlotStr.split('-');
 
-    // Double Check Conflict (เผื่อหน้าจอไม่อัปเดต)
+    // Double Check Conflict
     const bookings = DB.getBookings();
     const isDup = bookings.some(b => 
-        b.date === date && b.pcId === pcId && 
+        b.date === date && 
+        String(b.pcId) === String(pcId) && 
         ['approved', 'pending', 'in_use'].includes(b.status) &&
-        ((start >= b.startTime && start < b.endTime) || (end > b.startTime && end <= b.endTime))
+        (start < b.endTime && end > b.startTime)
     );
 
     if (isDup) {
@@ -295,7 +362,13 @@ function saveBooking() {
     const pcs = DB.getPCs();
     const pc = pcs.find(p => String(p.id) === String(pcId));
 
-    let softwareList = [];
+    // ดึงรายการ Software AI
+    let selectedSoftware = [];
+    const checkboxes = document.querySelectorAll('#aiCheckboxList input:checked');
+    checkboxes.forEach(cb => {
+        selectedSoftware.push(cb.value);
+    });
+
     const newBooking = {
         id: 'b_' + Date.now(),
         userId: userId,
@@ -307,7 +380,7 @@ function saveBooking() {
         endTime: end,
         status: 'approved',
         type: type,
-        softwareList: [] // หรือเก็บตามที่เลือก
+        softwareList: selectedSoftware 
     };
 
     bookings.push(newBooking);
@@ -344,6 +417,121 @@ function handleImport(input) {
     input.value = ''; 
 }
 
+// ==========================================
+// 3. IMPORT CSV LOGIC
+// ==========================================
+
 function processCSVData(csvText) {
-    alert("ฟังก์ชัน Import CSV พร้อมใช้งาน");
+    const lines = csvText.split(/\r\n|\n/).map(l => l.trim()).filter(l => l);
+
+    if (lines.length < 2) {
+        alert("❌ ไฟล์ CSV ต้องมีอย่างน้อย 2 บรรทัด (Header + Data)");
+        return;
+    }
+
+    const header = lines[0];
+    const commaCount = (header.match(/,/g) || []).length;
+    const semiCount = (header.match(/;/g) || []).length;
+    const delimiter = semiCount > commaCount ? ';' : ',';
+
+    const dataLines = lines.slice(1);
+    let successCount = 0;
+    let failCount = 0;
+    let errorLog = [];
+
+    const bookings = DB.getBookings();
+    const newBookings = [];
+
+    dataLines.forEach((line, index) => {
+        if (!line) return;
+
+        try {
+            const cols = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+            if (cols.length < 8) {
+                throw new Error(`คอลัมน์ไม่ครบ`);
+            }
+
+            const userId = cols[0];
+            const userName = cols[1];
+            const resourceName = cols[5]; 
+            const dateStr = cols[6];      
+            const timeRange = cols[7];    
+
+            const isoDate = convertDateToISO(dateStr);
+            if (!isoDate) throw new Error(`รูปแบบวันที่ผิด`);
+
+            if (!timeRange.includes('-')) throw new Error(`รูปแบบเวลาผิด`);
+            const [startTime, endTime] = timeRange.split('-');
+
+            const pcInfo = findPcFromResourceName(resourceName);
+            if (!pcInfo) throw new Error(`ไม่พบเครื่อง "${resourceName}"`);
+
+            const newBooking = {
+                id: 'b_imp_' + Date.now() + Math.floor(Math.random() * 10000),
+                userId: userId,
+                userName: userName,
+                pcId: pcInfo.id,
+                pcName: pcInfo.name,
+                date: isoDate,
+                startTime: startTime.trim(),
+                endTime: endTime.trim(),
+                status: 'approved',
+                type: (resourceName.toLowerCase().includes('ai') || resourceName.toLowerCase().includes('chatgpt')) ? 'AI' : 'General',
+                softwareList: [] 
+            };
+
+            newBookings.push(newBooking);
+            successCount++;
+
+        } catch (err) {
+            failCount++;
+            if (errorLog.length < 5) {
+                errorLog.push(`บรรทัด ${index + 2}: ${err.message}`);
+            }
+        }
+    });
+
+    if (successCount > 0) {
+        const updatedBookings = [...bookings, ...newBookings];
+        DB.saveBookings(updatedBookings);
+        renderBookings();
+        
+        let msg = `✅ นำเข้าสำเร็จ: ${successCount} รายการ`;
+        if (failCount > 0) {
+            msg += `\n⚠️ ล้มเหลว: ${failCount} รายการ\n\nตัวอย่างข้อผิดพลาด:\n${errorLog.join('\n')}`;
+        }
+        alert(msg);
+    } else {
+        alert(`❌ ไม่สามารถนำเข้าข้อมูลได้เลย (${failCount} รายการ)\n\nสาเหตุ:\n${errorLog.join('\n')}`);
+    }
+}
+
+function convertDateToISO(dateStr) {
+    if (!dateStr) return null;
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    
+    let day = parseInt(parts[0]);
+    let month = parseInt(parts[1]);
+    let year = parseInt(parts[2]);
+
+    if (year > 2400) year -= 543; 
+    
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function findPcFromResourceName(resourceName) {
+    const pcs = DB.getPCs();
+    const cleanName = resourceName.toLowerCase().trim();
+
+    const matches = cleanName.match(/(\d+)/); 
+    if (matches) {
+        const number = parseInt(matches[0]).toString(); 
+        let found = pcs.find(p => String(p.id) === number);
+        if (found) return found;
+        found = pcs.find(p => p.name.includes(number.padStart(2, '0')));
+        if (found) return found;
+    }
+
+    return pcs.find(p => cleanName.includes(p.name.toLowerCase()));
 }

@@ -115,23 +115,6 @@
                             </div>
                             
                             <div class="col-6">
-                                <label class="form-label text-muted small fw-bold">ค้นหาเครื่องจาก Software</label>
-                                <select id="bkSoftwareFilter" class="form-select form-select-sm text-primary border-primary bg-light mb-1" onchange="filterPCList()">
-                                    <option value="">-- ไม่ระบุ (แสดงทั้งหมด) --</option>
-                                    </select>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label text-muted small fw-bold">เลือกเครื่อง (PC)</label>
-                            <select id="bkPcSelect" class="form-select" required onchange="updateSoftwareList()">
-                                <option value="">-- กรุณาเลือกเครื่อง --</option>
-                            </select>
-                            <div class="form-text small" id="pcSoftwareHint">-</div>
-                        </div>
-                        
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
                                 <label class="form-label text-muted small fw-bold">ช่วงเวลา</label>
                                 <select id="bkTimeSlot" class="form-select" required>
                                     <option value="09:00-10:30">09:00 - 10:30</option>
@@ -141,6 +124,9 @@
                                     <option value="08:00-17:00">ทั้งวัน (08:00 - 17:00)</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <label class="form-label text-muted small fw-bold">ประเภทการใช้งาน</label>
                                 <select id="bkTypeSelect" class="form-select" onchange="toggleSoftwareList()">
@@ -148,6 +134,20 @@
                                     <option value="AI">AI Workstation</option>
                                 </select>
                             </div>
+                            <div class="col-6">
+                                <label class="form-label text-muted small fw-bold">ค้นหาเครื่องจาก Software</label>
+                                <select id="bkSoftwareFilter" class="form-select form-select-sm text-primary border-primary bg-light" onchange="filterPCList()">
+                                    <option value="">-- ไม่ระบุ (แสดงทั้งหมด) --</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold">เลือกเครื่อง (PC)</label>
+                            <select id="bkPcSelect" class="form-select" required onchange="updateSoftwareList()">
+                                <option value="">-- กรุณาเลือกเครื่อง --</option>
+                            </select>
+                            <div class="form-text small" id="pcSoftwareHint">-</div>
                         </div>
 
                         <div id="aiSelectionBox" class="card bg-light border-0 p-3 d-none mb-3">
