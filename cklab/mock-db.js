@@ -1,4 +1,4 @@
-/* mock-db.js (Enhanced Data for Full Reporting) */
+/* mock-db.js (Updated: Removed Office, Photoshop, VS Code) */
 
 // ==========================================
 // 1. MOCK DATA (ข้อมูลจำลอง)
@@ -35,7 +35,7 @@ const DEFAULT_BOOKINGS = [
     }
 ];
 
-// 1.2 ข้อมูล Software/AI Library (รายการครบถ้วน)
+// 1.2 ข้อมูล Software/AI Library (ตัด 3 ตัวออกแล้ว)
 const DEFAULT_SOFTWARE = [
     { id: "s1", name: "ChatGPT", version: "Plus", type: "AI" },
     { id: "s2", name: "Claude", version: "Pro", type: "AI" },
@@ -45,37 +45,34 @@ const DEFAULT_SOFTWARE = [
     { id: "s6", name: "Grammarly", version: "Pro", type: "AI" },
     { id: "s7", name: "Botnoi VOICE", version: "Premium", type: "AI" },
     { id: "s8", name: "Gamma", version: "Pro", type: "AI" },
-    { id: "s9", name: "Canva", version: "Pro", type: "Software" },
-    { id: "s10", name: "Microsoft Office", version: "365", type: "Software" },
-    { id: "s11", name: "Adobe Photoshop", version: "CC", type: "Software" },
-    { id: "s12", name: "VS Code", version: "Latest", type: "Software" }
+    { id: "s9", name: "Canva", version: "Pro", type: "Software" }
 ];
 
-// 1.3 ข้อมูลเครื่องคอมพิวเตอร์
+// 1.3 ข้อมูลเครื่องคอมพิวเตอร์ (เอา Software ที่ตัดออก ออกจากเครื่องด้วย)
 const DEFAULT_PCS = [
     { 
         id: "1", name: "PC-01", status: "available", 
-        installedSoftware: ["ChatGPT (Plus)", "Claude (Pro)", "Perplexity (Pro)", "VS Code"] 
+        installedSoftware: ["ChatGPT (Plus)", "Claude (Pro)", "Perplexity (Pro)"] 
     },
     { 
         id: "2", name: "PC-02", status: "in_use", currentUser: "สมชาย รักเรียน", startTime: Date.now() - 3600000, 
-        installedSoftware: ["Midjourney (Basic)", "Canva (Pro)", "Gamma (Pro)", "Adobe Photoshop"] 
+        installedSoftware: ["Midjourney (Basic)", "Canva (Pro)", "Gamma (Pro)"] 
     },
     { 
         id: "3", name: "PC-03", status: "available", 
-        installedSoftware: ["SciSpace (Premium)", "Grammarly (Pro)", "ChatGPT (Plus)", "Microsoft Office"] 
+        installedSoftware: ["SciSpace (Premium)", "Grammarly (Pro)", "ChatGPT (Plus)"] 
     },
     { 
         id: "4", name: "PC-04", status: "available", 
-        installedSoftware: ["Botnoi VOICE (Premium)", "Canva (Pro)", "Microsoft Office"] 
+        installedSoftware: ["Botnoi VOICE (Premium)", "Canva (Pro)"] 
     },
     { 
         id: "5", name: "PC-05", status: "available", 
-        installedSoftware: ["ChatGPT (Plus)", "Claude (Pro)", "Midjourney (Basic)", "VS Code"] 
+        installedSoftware: ["ChatGPT (Plus)", "Claude (Pro)", "Midjourney (Basic)"] 
     },
     { 
         id: "6", name: "PC-06", status: "reserved", 
-        installedSoftware: ["Perplexity (Pro)", "SciSpace (Premium)", "Adobe Photoshop"] 
+        installedSoftware: ["Perplexity (Pro)", "SciSpace (Premium)"] 
     }
 ];
 

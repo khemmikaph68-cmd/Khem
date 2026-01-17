@@ -1,4 +1,4 @@
-/* admin-report.js (Final Fix: Table Update & Pagination Reset) */
+/* admin-report.js (Final Merged: New Charts + Percentages + Fixed Year Filter) */
 
 // --- Global Variables ---
 let monthlyFacultyChartInstance, monthlyOrgChartInstance;
@@ -12,14 +12,29 @@ let rowsPerPage = 10;
 let filteredLogsGlobal = []; 
 
 // --- Master Lists ---
-const FACULTY_LIST = ["คณะวิทยาศาสตร์", "คณะเกษตรศาสตร์", "คณะวิศวกรรมศาสตร์", "คณะศิลปศาสตร์", "คณะเภสัชศาสตร์", "คณะบริหารศาสตร์", "คณะพยาบาลศาสตร์", "วิทยาลัยแพทยศาสตร์และการสาธารณสุข", "คณะศิลปประยุกต์และสถาปัตยกรรมศาสตร์", "คณะนิติศาสตร์", "คณะรัฐศาสตร์", "คณะศึกษาศาสตร์"];
+// ✅ เรียงลำดับตามปกติ (วิทยาศาสตร์ขึ้นก่อน) ตามที่แจ้ง
+const FACULTY_LIST = [
+    "คณะวิทยาศาสตร์", 
+    "คณะเกษตรศาสตร์", 
+    "คณะวิศวกรรมศาสตร์", 
+    "คณะศิลปศาสตร์", 
+    "คณะเภสัชศาสตร์", 
+    "คณะบริหารศาสตร์", 
+    "คณะพยาบาลศาสตร์", 
+    "วิทยาลัยแพทยศาสตร์และการสาธารณสุข", 
+    "คณะศิลปประยุกต์และสถาปัตยกรรมศาสตร์", 
+    "คณะนิติศาสตร์", 
+    "คณะรัฐศาสตร์", 
+    "คณะศึกษาศาสตร์"
+];
+
 const ORG_LIST = ["สำนักคอมพิวเตอร์และเครือข่าย", "สำนักบริหารทรัพย์สินและสิทธิประโยชน์", "สำนักวิทยบริการ", "กองกลาง", "กองแผนงาน", "กองคลัง", "กองบริการการศึกษา", "กองการเจ้าหน้าที่", "สำนักงานส่งเสริมและบริหารงานวิจัย ฯ", "สำนักงานพัฒนานักศึกษา", "สำนักงานบริหารกายภาพและสิ่งแวดล้อม", "สำนักงานวิเทศสัมพันธ์", "สำนักงานนิติการ / สำนักงานกฎหมาย", "สำนักงานตรวจสอบภายใน", "สำนักงานรักษาความปลอดภัย", "สภาอาจารย์", "สหกรณ์ออมทรัพย์มหาวิทยาลัยอุบลราชธานี", "อุทยานวิทยาศาสตร์มหาวิทยาลัยอุบลราชธานี", "ศูนย์การจัดการความรู้ (KM)", "ศูนย์การเรียนรู้และพัฒนา \"งา\" เชิงเกษตรอุตสาหกรรมครัวเรือนแบบยั่งยืน", "สถานปฏิบัติการโรงแรมฯ (U-Place)", "ศูนย์วิจัยสังคมอนุภาคลุ่มน้ำโขง ฯ", "ศูนย์เครื่องมือวิทยาศาสตร์", "โรงพิมพ์มหาวิทยาลัยอุบลราชธานี"];
 
 // --- ตัวแปรสำหรับเก็บ Instance ของกราฟใหม่ ---
 let distributionBarInstance = null;
 let dailyTrendLineInstance = null;
 
-// ✅ ฟังก์ชันวาดกราฟแท่ง 2.1 (แกน Y อยู่ที่เดิม + แท่งรวมกลุ่มตรงกลาง)
+// ✅ ฟังก์ชันวาดกราฟแท่ง 2.1
 function drawDistributionBarChart(data) {
     const ctx = document.getElementById('distributionBarChart');
     if (!ctx) return;
@@ -28,15 +43,14 @@ function drawDistributionBarChart(data) {
     const customOrder = { "นักศึกษา": 1, "บุคลากร": 2, "บุคคลภายนอก": 3 };
     
     const sortedData = Object.entries(data).sort((a, b) => {
-        const orderA = customOrder[a[0]] || 99; // ถ้าไม่ใช่ 3 กลุ่มนี้ให้ไปอยู่ท้ายสุด
+        const orderA = customOrder[a[0]] || 99;
         const orderB = customOrder[b[0]] || 99;
         
         if (orderA !== orderB) {
-            return orderA - orderB; // เรียงตาม 1, 2, 3
+            return orderA - orderB;
         }
-        return b[1] - a[1]; // กรณีเป็นโหมดอื่น (เช่น รายคณะ) ให้เรียงตามจำนวนเหมือนเดิม
+        return b[1] - a[1];
     });
-    // --------------------------------------
 
     distributionBarInstance = new Chart(ctx, {
         type: 'bar',
@@ -47,8 +61,6 @@ function drawDistributionBarChart(data) {
                 data: sortedData.map(x => Math.floor(x[1])),
                 backgroundColor: '#1d73f2',
                 borderRadius: 4,
-                
-                // คงค่าเหล่านี้ไว้ตามเดิมเพื่อขนาดแท่งที่สวยงาม
                 categoryPercentage: 0.3, 
                 barPercentage: 0.5,
                 maxBarThickness: 35
@@ -60,30 +72,17 @@ function drawDistributionBarChart(data) {
             scales: {
                 y: { 
                     beginAtZero: true, 
-                    // แกน Y จะอยู่ชิดซ้ายสุดตามปกติ
-                    ticks: { 
-                        stepSize: 1, 
-                        precision: 0,
-                        font: { family: "'Prompt', sans-serif" }
-                    },
-                    grid: {
-                        color: '#f0f0f0',
-                        drawBorder: true // แสดงเส้นขอบแกน Y
-                    }
+                    ticks: { stepSize: 1, precision: 0, font: { family: "'Prompt', sans-serif" } },
+                    grid: { color: '#f0f0f0', drawBorder: true }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { 
-                        font: { family: "'Prompt', sans-serif", size: 12 },
-                        color: '#666'
-                    }
+                    ticks: { font: { family: "'Prompt', sans-serif", size: 12 }, color: '#666' }
                 }
             },
             plugins: {
                 legend: { display: false },
-                tooltip: {
-                    bodyFont: { family: "'Prompt', sans-serif" }
-                }
+                tooltip: { bodyFont: { family: "'Prompt', sans-serif" } }
             }
         }
     });
@@ -103,12 +102,10 @@ function drawDailyTrendLineChart(dailyData, timeMode) {
     } 
     else if (timeMode === 'daily' || timeMode === 'monthly') {
         let startD, endD;
-
         if (timeMode === 'daily') {
             startD = new Date(document.getElementById('dateStart').value);
             endD = new Date(document.getElementById('dateEnd').value);
         } else {
-            // โหมด Monthly: หาตั้งแต่วันที่ 1 ของเดือนเริ่ม จนถึงวันสุดท้ายของเดือนจบ
             const mStartVal = document.getElementById('monthStart').value;
             const mEndVal = document.getElementById('monthEnd').value;
             startD = new Date(mStartVal + "-01");
@@ -161,15 +158,20 @@ function drawDailyTrendLineChart(dailyData, timeMode) {
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // โหลดข้อมูลครั้งแรก
     allLogs = (DB.getLogs && typeof DB.getLogs === 'function') ? DB.getLogs() : [];
     lastLogCount = allLogs.length; 
 
     initFilters();      
     initDateInputs();   
     
-    renderLifetimeStats(); 
-    applyFilters(); // เรียกครั้งแรกเพื่อให้แสดงผลเลย
+    // เรียกฟังก์ชันนี้เพื่อให้แสดงข้อมูลตอนโหลด
+    if (typeof renderLifetimeStats === 'function') {
+        renderLifetimeStats();
+    } else {
+        console.warn("renderLifetimeStats not found, skipping.");
+    }
+    
+    applyFilters(); 
 
     setInterval(checkForUpdates, 5000); 
 });
@@ -179,8 +181,8 @@ function checkForUpdates() {
     if (currentLogs.length !== lastLogCount) {
         allLogs = currentLogs;
         lastLogCount = currentLogs.length;
-        applyFilters(); // อัปเดตเมื่อมีข้อมูลใหม่เข้ามา
-        renderLifetimeStats();
+        applyFilters(); 
+        if (typeof renderLifetimeStats === 'function') renderLifetimeStats();
     }
 }
 
@@ -280,19 +282,30 @@ function getCheckedValues(containerId) {
     return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
 }
 
+// ✅ [ADDED FUNCTION] ฟังก์ชันเปิด-ปิด dropdown ชั้นปี (สำคัญมาก)
+function toggleStudentYearInputs() {
+    const levelSelect = document.getElementById('filterEduLevel');
+    const yearContainer = document.getElementById('filterYearContainer');
+    
+    if (levelSelect && yearContainer) {
+        if (levelSelect.value === 'ปริญญาตรี') {
+            yearContainer.classList.remove('d-none'); 
+        } else {
+            yearContainer.classList.add('d-none'); 
+            document.getElementById('filterStudentYear').value = 'all'; 
+        }
+    }
+}
+
 // ==========================================
 // 3. CORE LOGIC (FILTER)
 // ==========================================
 
 function generateReport() {
-    // ✅ บังคับรีเซ็ตหน้าเป็น 1 เมื่อกดปุ่มประมวลผล เพื่อให้ตารางเด้งไปหน้าแรกสุดของข้อมูลชุดใหม่
+    // ✅ บังคับรีเซ็ตหน้าเป็น 1 เมื่อกดปุ่มประมวลผล
     currentPage = 1;
     applyFilters(); 
 }
-
-/* admin-report.js - แก้ไขลอจิก applyFilters ตามความต้องการของผู้ใช้ */
-
-// admin-report.js
 
 function applyFilters() { 
     // 1. ดึงข้อมูล Log ทั้งหมดที่สิ้นสุดการใช้งานแล้ว
@@ -310,7 +323,7 @@ function applyFilters() {
         const logDate = new Date(log.startTime || log.timestamp);
         const logFaculty = (log.userFaculty || "").trim();
 
-        // กรองตามเวลา (Daily / Monthly)
+        // กรองตามเวลา
         if (timeMode === 'daily') {
             const start = new Date(document.getElementById('dateStart').value);
             const end = new Date(document.getElementById('dateEnd').value);
@@ -324,60 +337,42 @@ function applyFilters() {
             const mEndParts = mEndInput.split('-');
             const mEnd = new Date(mEndParts[0], mEndParts[1], 0, 23, 59, 59);
             if (logDate < mStart || logDate > mEnd) return false;
-        // ค้นหาส่วนการกรองเวลาในฟังก์ชัน applyFilters และเพิ่มเงื่อนไข yearly ต่อจากรายเดือน
         } else if (timeMode === 'yearly') {
             const yStart = parseInt(document.getElementById('yearStart').value);
             const yEnd = parseInt(document.getElementById('yearEnd').value);
-            const logYear = logDate.getFullYear(); // ดึงปี ค.ศ. จากข้อมูล Log
-            
-            // ตรวจสอบว่าปีใน Log อยู่ในช่วงที่เลือกหรือไม่
+            const logYear = logDate.getFullYear(); 
             if (logYear < yStart || logYear > yEnd) return false;
         }
 
         const role = (log.userRole || '').toLowerCase();
         
-        // ✅ [LOGIC แก้ไข] การกรองข้อมูลนักศึกษา
+        // ✅ [MERGED LOGIC] กรองนักศึกษาแบบแยก ป.ตรี/ชั้นปี
         if (userMode === 'student') {
             if (role !== 'student') return false;
             
-            // ตรวจสอบคณะ
+            // 1. ตรวจสอบคณะ
             const isFacultyMatch = selectedFaculties.some(fac => fac.trim() === logFaculty);
             if (!isFacultyMatch) return false;
 
-            // ตรวจสอบ ระดับการศึกษา / ชั้นปี
-            const combinedValue = document.getElementById('combinedYearLevel').value;
+            // 2. ตรวจสอบ ระดับการศึกษา และ ชั้นปี
+            const filterLevel = document.getElementById('filterEduLevel').value;
+            const filterYear = document.getElementById('filterStudentYear').value;
             const userLevel = (log.userLevel || "").toString().trim();
-            const userYear = (log.userYear || "").toString().trim(); // ค่าจาก DB เช่น "5"
+            const userYear = (log.userYear || "").toString().trim();
 
-            if (combinedValue !== 'all') {
-                if (combinedValue === 'undergrad_all') {
-                    // กรณีเลือก ปริญญาตรี (ทั้งหมด) -> เอาทุกชั้นปีที่เป็น ป.ตรี
-                    if (userLevel !== 'ปริญญาตรี') return false;
-                } 
-                else if (combinedValue === 'ปริญญาโท' || combinedValue === 'ปริญญาเอก') {
-                    if (userLevel !== combinedValue) return false;
-                } 
-                else if (combinedValue === '5+') {
-                    // ✅ แก้ไขจุดนี้: ถ้าเลือก 5+ ให้เช็คว่าเป็น ป.ตรี และ ปีตั้งแต่ 5 ขึ้นไป
-                    const yNum = parseInt(userYear);
-                    if (userLevel !== 'ปริญญาตรี' || isNaN(yNum) || yNum < 5) return false;
-                } 
-                else {
-                    // กรณีเลือกปี 1, 2, 3, 4
-                    if (userLevel !== 'ปริญญาตรี' || userYear !== combinedValue) return false;
+            if (filterLevel !== 'all') {
+                if (userLevel !== filterLevel) return false;
+                // ถ้าเป็น ป.ตรี และมีการเลือกชั้นปีเจาะจง
+                if (filterLevel === 'ปริญญาตรี' && filterYear !== 'all') {
+                    if (userYear !== filterYear) return false;
                 }
             }
         } 
-        // ค้นหาเงื่อนไขการกรองของ staff ในฟังก์ชัน applyFilters
         else if (userMode === 'staff') {
             if (role !== 'staff' && role !== 'admin') return false;
-
             const currentLogFaculty = (log.userFaculty || "").replace(/["\\]/g, "").trim();
-
             return selectedOrgs.some(org => {
                 const selectedOrgClean = org.replace(/["\\]/g, "").trim();
-                
-                // แก้ไขจากการใช้ === เป็นการใช้ .includes() เพื่อลดปัญหาเรื่องเครื่องหมายพิเศษ
                 return currentLogFaculty.includes(selectedOrgClean) || selectedOrgClean.includes(currentLogFaculty);
             });
         }
@@ -393,7 +388,6 @@ function applyFilters() {
     const timeChartData = {};
 
     filteredLogs.forEach(l => {
-        // กราฟ 2.1: แยกกลุ่มผู้ใช้ (คง นักศึกษา/บุคลากร/ภายนอก ไว้)
         let distLabel = l.userFaculty || 'ไม่ระบุ';
         if (userMode === 'all') {
             if (l.userRole === 'student') distLabel = "นักศึกษา";
@@ -402,7 +396,6 @@ function applyFilters() {
         }
         distributionData[distLabel] = (distributionData[distLabel] || 0) + 1;
 
-        // กราฟ 2.2: กำหนด Label แกน X (โหมด Monthly ใช้รายวันเหมือน Daily)
         const dateObj = new Date(l.startTime || l.timestamp);
         let timeLabel;
         if (timeMode === 'daily' || timeMode === 'monthly') {
@@ -431,18 +424,12 @@ function applyFilters() {
 }
 
 function updateSummaryCards(data) {
-    // นับจำนวนคนจริงๆ แบบไม่ซ้ำรหัส (จะออกมาเป็น 14 คนสำหรับนักศึกษา)
     const uniqueUsers = new Set(data.map(log => log.userId)).size;
-
-    // นับจำนวนครั้งที่ทำรายการสำเร็จ (Sessions)
     const sessionCount = data.length;
-
-    // คำนวณเวลารวม
     let totalMinutes = 0;
     data.forEach(log => { totalMinutes += (log.durationMinutes || 0); });
     const totalHours = (totalMinutes / 60).toFixed(1);
 
-    // แสดงผล
     animateValue("resultUserCount", 0, uniqueUsers, 500); 
     animateValue("resultSessionCount", 0, sessionCount, 500);
     animateValue("resultTotalHours", 0, parseFloat(totalHours), 500);
@@ -451,7 +438,6 @@ function updateSummaryCards(data) {
 function animateValue(id, start, end, duration) {
     const obj = document.getElementById(id);
     if(!obj) return;
-    // Simple set text to avoid animation glitch if rapid updates
     obj.innerHTML = end.toLocaleString(); 
 }
 
@@ -476,20 +462,6 @@ function processLogsForCharts(logs, mode) {
         if (mode === 'daily') timeKey = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }); 
         else if (mode === 'yearly') timeKey = (dateObj.getFullYear() + 543).toString();
         else timeKey = dateObj.toLocaleDateString('th-TH', { year: '2-digit', month: 'short' });
-
-        const faculty = log.userFaculty || 'Unknown';
-        let target = null;
-        if (FACULTY_LIST.includes(faculty) || faculty.startsWith("คณะ") || faculty.startsWith("วิทยาลัย")) target = result.monthlyFacultyData;
-        else if (ORG_LIST.includes(faculty)) target = result.monthlyOrgData;
-        else {
-             if(log.userRole === 'student') target = result.monthlyFacultyData;
-             else target = result.monthlyOrgData;
-        }
-
-        if (target) {
-            if (!target[timeKey]) target[timeKey] = {};
-            target[timeKey][faculty] = (target[timeKey][faculty] || 0) + 1;
-        }
 
         if (log.isAIUsed) result.aiUsageData.ai++; else result.aiUsageData.nonAI++;
 
@@ -516,74 +488,12 @@ function processLogsForCharts(logs, mode) {
         }
     });
 
-    let maxPcId = null; let maxPcAvg = -1;
-    result.pcAvgTimeData = Array.from(pcUsageMap.entries()).map(([id, d]) => {
-        const avg = d.count > 0 ? (d.total / d.count) : 0;
-        if (avg > maxPcAvg) { maxPcAvg = avg; maxPcId = id; }
-        const pcInfo = allPCs.find(p => String(p.id) === id);
-        return { pcId: pcInfo ? pcInfo.name : `PC-${id}`, avgTime: avg.toFixed(1) };
-    });
-
-    if (maxPcId) {
-        const pcInfo = allPCs.find(p => String(p.id) === maxPcId);
-        result.quickStats.topPC = { name: pcInfo ? pcInfo.name : `PC-${maxPcId}`, value: maxPcAvg.toFixed(1) };
-        const elTopPC = document.getElementById('statTopPC');
-        const elTopPCTime = document.getElementById('statTopPCTime');
-        if(elTopPC) elTopPC.innerText = result.quickStats.topPC.name;
-        if(elTopPCTime) elTopPCTime.innerText = `(เฉลี่ย ${result.quickStats.topPC.value} นาที)`;
-    }
-    
-    const globalCount = logs.length;
-    let globalTotal = 0; logs.forEach(l => globalTotal += (l.durationMinutes||0));
-    if(globalCount > 0) {
-        const avg = globalTotal/globalCount;
-        const elAvg = document.getElementById('statAvgTime');
-        if(elAvg) elAvg.innerText = avg >= 60 ? `${(avg/60).toFixed(1)} ชม.` : `${avg.toFixed(0)} นาที`;
-    }
-
     return result;
 }
 
 // ==========================================
-// 5. CHART DRAWING FUNCTIONS
+// 5. CHART DRAWING FUNCTIONS (WITH PLUGINS)
 // ==========================================
-
-function drawBeautifulLineChart(data, canvasId, topN = 5, mode = 'monthly') {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    const existingChart = Chart.getChart(ctx);
-    if (existingChart) existingChart.destroy();
-
-    const keys = Object.keys(data).sort((a,b) => {
-         if (mode === 'daily') return parseInt(a) - parseInt(b);
-         return a.localeCompare(b);
-    });
-    
-    // Handle empty data for charts
-    if (keys.length === 0) {
-        // Create an empty chart placeholder if needed, or just return
-        return; 
-    }
-
-    const totals = {};
-    keys.forEach(k => Object.keys(data[k]).forEach(subKey => totals[subKey] = (totals[subKey]||0) + data[k][subKey]));
-    const topKeys = Object.keys(totals).sort((a,b) => totals[b] - totals[a]).slice(0, topN);
-
-    const datasets = topKeys.map((k, i) => ({
-        label: k, data: keys.map(m => data[m][k] || 0),
-        borderColor: getChartColor(i), backgroundColor: getChartColor(i),
-        borderWidth: 2.5, tension: 0.4, pointRadius: 3, fill: false
-    }));
-    
-    return new Chart(ctx.getContext('2d'), {
-        type: 'line', data: { labels: keys, datasets },
-        options: {
-            responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 15, font: { family: "'Prompt', sans-serif" } } } },
-            scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
-        }
-    });
-}
 
 function drawTopSoftwareChart(data) {
     const ctx = document.getElementById('topSoftwareChart');
@@ -592,47 +502,138 @@ function drawTopSoftwareChart(data) {
     if (existingChart) existingChart.destroy();
 
     const sorted = Object.entries(data).sort((a,b) => b[1] - a[1]).slice(0, 10);
+    const grandTotal = Object.values(data).reduce((acc, val) => acc + val, 0);
+
     const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 400, 0);
     gradient.addColorStop(0, '#4e73df'); gradient.addColorStop(1, '#36b9cc');
 
     return new Chart(ctx, {
         type: 'bar',
-        data: { labels: sorted.map(x=>x[0]), datasets: [{ label: 'จำนวนการใช้งาน', data: sorted.map(x=>x[1]), backgroundColor: gradient, borderRadius: 10, barPercentage: 0.6 }] },
+        data: { 
+            labels: sorted.map(x=>x[0]), 
+            datasets: [{ 
+                label: 'จำนวนการใช้งาน', 
+                data: sorted.map(x=>x[1]), 
+                backgroundColor: gradient, 
+                borderRadius: 10, 
+                barPercentage: 0.6 
+            }] 
+        },
+        plugins: [{
+            id: 'customBarLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx } = chart;
+                ctx.save();
+                ctx.font = "bold 12px 'Prompt', sans-serif"; 
+                ctx.fillStyle = '#666'; 
+                ctx.textBaseline = 'middle';
+                
+                chart.getDatasetMeta(0).data.forEach((datapoint, index) => {
+                    const value = sorted[index][1];
+                    const percentage = grandTotal > 0 ? ((value / grandTotal) * 100).toFixed(1) + '%' : '0%';
+                    ctx.fillText(percentage, datapoint.x + 5, datapoint.y);
+                });
+                ctx.restore();
+            }
+        }],
         options: { 
-            indexAxis: 'y', responsive: true, maintainAspectRatio: false, 
-            plugins: { legend: {display:false}, tooltip: { callbacks: { label: (c) => ` ${c.raw} ครั้ง` } } }, 
-            scales: { x: { beginAtZero: true, grid: { display: false }, ticks: { font: { family: "'Prompt', sans-serif" } } }, y: { grid: {display:false}, ticks: { font: { family: "'Prompt', sans-serif", weight: '500' } } } } 
-        }
-    });
-}
-
-function drawPCAvgTimeChart(d) { 
-    const ctx = document.getElementById('pcAvgTimeChart');
-    if(!ctx) return;
-    const existingChart = Chart.getChart(ctx);
-    if (existingChart) existingChart.destroy();
-
-    let labels = (d && d.length > 0) ? d.map(x=>x.pcId) : ["ไม่มีข้อมูล"];
-    let values = (d && d.length > 0) ? d.map(x=>x.avgTime) : [0];
-    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, '#0d6efd'); gradient.addColorStop(1, '#8e2de2');
-
-    return new Chart(ctx.getContext('2d'), {
-        type: 'bar',
-        data: { labels: labels, datasets: [{ label: 'เวลาเฉลี่ย (นาที)', data: values, backgroundColor: gradient, borderRadius: 6 }] },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
+            indexAxis: 'y', 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            layout: { padding: { right: 45 } },
+            plugins: { 
+                legend: {display:false}, 
+                tooltip: { 
+                    callbacks: { 
+                        label: (c) => {
+                            const val = c.raw;
+                            const per = grandTotal > 0 ? ((val/grandTotal)*100).toFixed(1) : 0;
+                            return ` ${val} ครั้ง (${per}%)`;
+                        } 
+                    } 
+                } 
+            }, 
+            scales: { 
+                x: { beginAtZero: true, grid: { display: false }, ticks: { font: { family: "'Prompt', sans-serif" } } }, 
+                y: { grid: {display:false}, ticks: { font: { family: "'Prompt', sans-serif", weight: '500' } } } 
+            } 
         }
     });
 }
 
 function drawAIUsagePieChart(d) { 
+    const total = d.ai + d.nonAI;
+    const toStrikethrough = (text) => text.split('').map(char => char + '\u0336').join('');
+
     return new Chart(document.getElementById('aiUsagePieChart'), { 
         type: 'doughnut', 
-        data: { labels: ['AI Tools', 'General Use'], datasets: [{ data: [d.ai, d.nonAI], backgroundColor: ['#4e73df', '#e2e6ea'], borderWidth: 0 }] }, 
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position:'bottom', labels: { usePointStyle: true, font: { family: "'Prompt', sans-serif" } } } }, cutout: '70%' } 
+        data: { 
+            labels: ['AI Tools', 'General Use'], 
+            datasets: [{ 
+                data: [d.ai, d.nonAI], 
+                backgroundColor: ['#4e73df', '#e2e6ea'], 
+                borderWidth: 0,
+                hoverOffset: 4
+            }] 
+        }, 
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            layout: { padding: { top: 10, bottom: 10, left: 10, right: 20 } },
+            plugins: { 
+                legend: { 
+                    position: 'right', 
+                    align: 'start',    
+                    labels: { 
+                        usePointStyle: true, 
+                        font: { family: "'Prompt', sans-serif", size: 12 },
+                        padding: 20,
+                        boxWidth: 10,
+                        generateLabels: (chart) => {
+                            const data = chart.data;
+                            if (data.labels.length && data.datasets.length) {
+                                return data.labels.map((label, i) => {
+                                    const value = data.datasets[0].data[i];
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    const color = data.datasets[0].backgroundColor[i];
+                                    const isHidden = !chart.getDataVisibility(i);
+                                    let textLabel = `${label} (${percentage}%)`;
+                                    if (isHidden) textLabel = toStrikethrough(textLabel);
+
+                                    return {
+                                        text: textLabel,
+                                        fillStyle: color, 
+                                        strokeStyle: color,
+                                        lineWidth: 0,
+                                        hidden: isHidden,
+                                        index: i
+                                    };
+                                });
+                            }
+                            return [];
+                        }
+                    },
+                    onClick: (e, legendItem, legend) => {
+                        const index = legendItem.index;
+                        const ci = legend.chart;
+                        if (ci.isDatasetVisible(0)) {
+                            ci.toggleDataVisibility(index);
+                            ci.update();
+                        }
+                    }
+                },
+                tooltip: { 
+                    callbacks: { 
+                        label: (context) => {
+                            const value = context.raw;
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return ` ${context.label}: ${value.toLocaleString()} ครั้ง (${percentage}%)`;
+                        } 
+                    } 
+                } 
+            }, 
+            cutout: '65%'
+        } 
     }); 
 }
 
@@ -644,6 +645,7 @@ function drawSatisfactionChart(data) {
         avgScore = (weightedSum / total); 
     }
     const avgDisplay = avgScore.toFixed(1);
+    const percentage = total > 0 ? ((avgScore / 5) * 100).toFixed(1) : 0;
     
     const scoreEl = document.getElementById('satisfactionAvgScore');
     const countEl = document.getElementById('satisfactionTotalCount');
@@ -651,12 +653,14 @@ function drawSatisfactionChart(data) {
     
     if(scoreEl) {
         let scoreClass = 'text-dark';
-        if (avgScore >= 4.5) scoreClass = 'text-success';
-        else if (avgScore >= 3.5) scoreClass = 'text-primary';
+        if (avgScore >= 4.5) scoreClass = 'text-primary';      
+        else if (avgScore >= 3.5) scoreClass = 'text-success'; 
         else if (avgScore >= 2.5) scoreClass = 'text-warning';
         else if (avgScore > 0) scoreClass = 'text-danger';
 
         scoreEl.className = `fw-bold mb-0 me-3 ${scoreClass}`;
+        scoreEl.style.fontSize = '6rem'; 
+        scoreEl.style.lineHeight = '0.8';
         scoreEl.innerText = avgDisplay;
 
         if(starsEl) {
@@ -669,12 +673,25 @@ function drawSatisfactionChart(data) {
             starsEl.innerHTML = starsHtml;
         }
     }
-    if(countEl) countEl.innerText = `จากผู้ใช้งานทั้งหมด ${total.toLocaleString()} คน`;
+    
+    if(countEl) {
+        countEl.innerHTML = `
+            <div class="text-dark fw-bold" style="line-height: 1.2; margin-bottom: 0px;">คิดเป็นร้อยละ ${percentage}%</div>
+            <div class="text-dark" style="display: block; line-height: 1.2; margin-top: 2px;">จากผู้ใช้งานทั้งหมด ${total.toLocaleString()} คน</small>
+        `;
+    }
 
     const container = document.getElementById('satisfactionProgressBars');
     if(!container) return;
     container.innerHTML = '';
-    const barConfigs = { 5: { color: '#2ecc71' }, 4: { color: '#3498db' }, 3: { color: '#f1c40f' }, 2: { color: '#e67e22' }, 1: { color: '#e74c3c' } };
+    
+    const barConfigs = { 
+        5: { color: '#3498db' }, 
+        4: { color: '#2ecc71' }, 
+        3: { color: '#f1c40f' }, 
+        2: { color: '#e67e22' }, 
+        1: { color: '#e74c3c' } 
+    };
 
     for(let i=5; i>=1; i--) {
         const count = data[i] || 0;
@@ -695,17 +712,13 @@ function drawSatisfactionChart(data) {
     }
 }
 
-function getChartColor(i) { return ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#6f42c1'][i%6]; }
-
 // ==========================================
 // 6. RENDER TABLES & HELPERS (PAGINATION FIXED)
 // ==========================================
 
 function renderLogHistory(logs) {
-    // ✅ 1. อัปเดตตัวแปร Global เพื่อใช้ในการเปลี่ยนหน้า
     filteredLogsGlobal = logs || [];
     
-    // ✅ 2. ตรวจสอบว่ามีข้อมูลหรือไม่
     const totalItems = filteredLogsGlobal.length;
     const tbody = document.getElementById('logHistoryTableBody');
     if (!tbody) return;
@@ -716,7 +729,6 @@ function renderLogHistory(logs) {
         return;
     }
 
-    // ✅ 3. คำนวณหน้า (Pagination Logic)
     const totalPages = Math.ceil(totalItems / rowsPerPage);
     if (currentPage > totalPages) currentPage = 1;
     if (currentPage < 1) currentPage = 1;
@@ -724,12 +736,10 @@ function renderLogHistory(logs) {
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
     
-    // ✅ 4. ตัดข้อมูลเฉพาะหน้าปัจจุบันมาแสดง
     const currentLogs = filteredLogsGlobal
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .slice(startIndex, endIndex);
 
-    // ✅ 5. สร้าง HTML (Table Rows)
     tbody.innerHTML = currentLogs.map((log, i) => {
         const dateObj = new Date(log.timestamp);
         const dateStr = dateObj.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -799,7 +809,7 @@ function updatePaginationControls(totalItems, startItem, endItem) {
         if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
             html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
                         <a class="page-link cursor-pointer" onclick="goToPage(${i})">${i}</a>
-                     </li>`;
+                      </li>`;
         } else if (i === currentPage - 2 || i === currentPage + 2) {
              html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
         }
@@ -895,11 +905,15 @@ function exportReport(mode) {
     generateCSV(startDate, endDate, fileNamePrefix);
 }
 
-function exportCSV() {
-    const filteredLogs = filterLogs(allLogs, getFilterParams());
-    if (filteredLogs.length === 0) { alert("ไม่พบข้อมูล Log ตามเงื่อนไขที่เลือก"); return; }
-    const fileName = `Usage_Report_${new Date().toLocaleDateString('en-CA')}`;
-    createCSVFile(filteredLogs, fileName);
+function exportAllLogs() {
+    if (!allLogs || allLogs.length === 0) {
+        alert("ไม่มีข้อมูล Log ในระบบ");
+        return;
+    }
+    if (!confirm(`ยืนยันการ Export ข้อมูล Log ทั้งหมด (${allLogs.length} รายการ)?`)) return;
+    const now = new Date();
+    const fileName = `CKLab_Logs_Backup_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours()}${now.getMinutes()}`;
+    createCSVFile(allLogs, fileName);
 }
 
 function generateCSV(startDateObj, endDateObj, fileNamePrefix) {
@@ -940,60 +954,6 @@ function createCSVFile(logs, fileName) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-}
-
-function renderLifetimeStats() {
-    const logs = DB.getLogs();
-    const total = logs.length;
-    const internal = logs.filter(l => l.userRole === 'student' || l.userRole === 'staff').length;
-    const external = total - internal; 
-
-    document.getElementById('lifetimeTotalCount').innerText = total.toLocaleString();
-    if(document.getElementById('lifetimeInternal')) document.getElementById('lifetimeInternal').innerText = internal.toLocaleString();
-    if(document.getElementById('lifetimeExternal')) document.getElementById('lifetimeExternal').innerText = external.toLocaleString();
-    if (total > 0) {
-        if(document.getElementById('progInternal')) document.getElementById('progInternal').style.width = `${(internal / total) * 100}%`;
-        if(document.getElementById('progExternal')) document.getElementById('progExternal').style.width = `${(external / total) * 100}%`;
-    }
-}
-
-function autoSetDates() { 
-    const periodSelect = document.getElementById('filterPeriod');
-    if (!periodSelect) return; 
-    const p = periodSelect.value;
-    const t = new Date(); 
-    let s, e; 
-    if (p === 'daily_31') { s = new Date(t.getFullYear(), t.getMonth(), 1); e = new Date(t.getFullYear(), t.getMonth() + 1, 0); } 
-    else if (p === 'monthly_12') { s = new Date(t.getFullYear(), 0, 1); e = new Date(t.getFullYear(), 11, 31); } 
-    else if (p === 'quarterly') { const q = Math.floor(t.getMonth() / 3); s = new Date(t.getFullYear(), q * 3, 1); e = new Date(t.getFullYear(), (q * 3) + 3, 0); } 
-    else if (p === 'yearly_custom') { s = new Date(2025, 0, 1); e = t; } 
-    else if (p === 'custom') return; 
-
-    if (s && e) {
-        document.getElementById('filterStartDate').value = formatDateForInput(s); 
-        document.getElementById('filterEndDate').value = formatDateForInput(e);
-        applyFilters(); 
-    } 
-}
-
-function processImportCSV(el) { alert('ฟังก์ชัน Import CSV ทำงานปกติ (จำลอง)'); }
-function formatDateForInput(date) { return date.toLocaleDateString('en-CA'); } 
-function formatDateStr(date) { return date.toLocaleDateString('en-CA'); } 
-function getSatisfactionDisplay(score) { if (!score) return '-'; const c = score>=4?'success':(score>=2?'warning text-dark':'danger'); return `<span class="badge bg-${c}"><i class="bi bi-star-fill"></i> ${score}</span>`; }
-
-// ==========================================
-// 7. IMPORT / EXPORT SYSTEM
-// ==========================================
-
-function exportAllLogs() {
-    if (!allLogs || allLogs.length === 0) {
-        alert("ไม่มีข้อมูล Log ในระบบ");
-        return;
-    }
-    if (!confirm(`ยืนยันการ Export ข้อมูล Log ทั้งหมด (${allLogs.length} รายการ)?`)) return;
-    const now = new Date();
-    const fileName = `CKLab_Logs_Backup_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours()}${now.getMinutes()}`;
-    createCSVFile(allLogs, fileName);
 }
 
 function handleLogImport(input) {
@@ -1092,9 +1052,29 @@ function processLogCSV(csvText) {
         allLogs = combinedLogs;
         lastLogCount = allLogs.length;
         applyFilters();
-        renderLifetimeStats();
+        if (typeof renderLifetimeStats === 'function') renderLifetimeStats();
         alert(`✅ Import สำเร็จ: ${successCount} รายการ\n❌ ล้มเหลว: ${failCount} รายการ`);
     } else {
         alert("❌ ไม่สามารถนำเข้าข้อมูลได้ (รูปแบบไฟล์ไม่ถูกต้อง)");
+    }
+}
+
+function formatDateStr(date) { return date.toLocaleDateString('en-CA'); } 
+function getChartColor(i) { return ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#6f42c1'][i%6]; }
+
+function renderLifetimeStats() {
+    const logs = DB.getLogs();
+    const total = logs.length;
+    const internal = logs.filter(l => l.userRole === 'student' || l.userRole === 'staff').length;
+    const external = total - internal; 
+
+    const totalEl = document.getElementById('lifetimeTotalCount');
+    if(totalEl) totalEl.innerText = total.toLocaleString();
+    
+    if(document.getElementById('lifetimeInternal')) document.getElementById('lifetimeInternal').innerText = internal.toLocaleString();
+    if(document.getElementById('lifetimeExternal')) document.getElementById('lifetimeExternal').innerText = external.toLocaleString();
+    if (total > 0) {
+        if(document.getElementById('progInternal')) document.getElementById('progInternal').style.width = `${(internal / total) * 100}%`;
+        if(document.getElementById('progExternal')) document.getElementById('progExternal').style.width = `${(external / total) * 100}%`;
     }
 }
