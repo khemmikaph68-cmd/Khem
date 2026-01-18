@@ -99,25 +99,4 @@ Rate ..> Save : <<include>>
 Save --> API : Save Log
 Save ..> BackHome : <<include>>
 
-' --- Notes ---
-note right of UC01
-  <b>ผู้รับผิดชอบ:</b> ปภังกร
-end note
-
-note right of UC04
-  <b>ผู้รับผิดชอบ:</b> ปภังกร
-end note
-
-note right of UC05
-  <b>ผู้รับผิดชอบ:</b> นักมวย
-  คืนสถานะเครื่อง
-  และเปลี่ยนหน้า
-end note
-
-note right of UC03
-  <b>ผู้รับผิดชอบ:</b> นักมวย
-  บันทึกคะแนน
-  และกลับหน้าแรก
-end note
-
 @enduml
